@@ -97,48 +97,56 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TreeViewItem">
-                        <StackPanel>
+                        <StackPanel HorizontalAlignment="Stretch">
                             <Border x:Name="Bd"
-                                    Background="{Binding DisplayBackground}"
+                                    Background="{Binding DisplayBackground, TargetNullValue={StaticResource ControlBackgroundBrush}}"
                                     BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="1,0,0,0"
-                                    Padding="{TemplateBinding Padding}">
+                                    BorderThickness="0"
+                                    Padding="{TemplateBinding Padding}"
+                                    HorizontalAlignment="Stretch">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <ToggleButton x:Name="Expander"
-                                                  Grid.Column="0"
-                                                  ClickMode="Press"
-                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
-                                                  Visibility="{Binding HasItems, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVis}}">
-                                        <ToggleButton.Template>
-                                            <ControlTemplate TargetType="ToggleButton">
-                                                <Border Background="Transparent" Width="16" Height="16">
-                                                    <TextBlock x:Name="Arrow" Text="&#x25B6;" FontFamily="Segoe UI"
-                                                               FontSize="8" Foreground="{StaticResource ControlForegroundBrush}"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                               RenderTransformOrigin="0.5,0.5">
-                                                        <TextBlock.RenderTransform>
-                                                            <RotateTransform Angle="0"/>
-                                                        </TextBlock.RenderTransform>
-                                                    </TextBlock>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsChecked" Value="True">
-                                                        <Setter TargetName="Arrow" Property="RenderTransform">
-                                                            <Setter.Value>
-                                                                <RotateTransform Angle="90"/>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </ToggleButton.Template>
-                                    </ToggleButton>
+
+                                    <!-- Icon column: toggle for parents, code icon for leaves -->
+                                    <Border Grid.Column="0" Width="16" Height="16"
+                                            Background="Transparent">
+                                        <Grid>
+                                            <ToggleButton x:Name="Expander"
+                                                          ClickMode="Press"
+                                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                                          Visibility="Collapsed">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Grid Width="16" Height="16">
+                                                            <vsimg:CrispImage x:Name="CollapsedIcon"
+                                                                              Moniker="{x:Static vscat:KnownMonikers.ExpandRight}"
+                                                                              Width="16" Height="16"/>
+                                                            <vsimg:CrispImage x:Name="ExpandedIcon"
+                                                                              Moniker="{x:Static vscat:KnownMonikers.ExpandDown}"
+                                                                              Width="16" Height="16"
+                                                                              Visibility="Collapsed"/>
+                                                        </Grid>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="CollapsedIcon" Property="Visibility" Value="Collapsed"/>
+                                                                <Setter TargetName="ExpandedIcon" Property="Visibility" Value="Visible"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                            </ToggleButton>
+                                            <vsimg:CrispImage x:Name="LeafIcon"
+                                                              Moniker="{x:Static vscat:KnownMonikers.ThisLine}"
+                                                              Width="16" Height="16"/>
+                                        </Grid>
+                                    </Border>
+
                                     <ContentPresenter x:Name="PART_Header"
                                                       Grid.Column="1"
+                                                      Margin="2,0,0,0"
                                                       ContentSource="Header"
                                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
                                 </Grid>
@@ -150,6 +158,10 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="LeafIcon" Property="Visibility" Value="Collapsed"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
