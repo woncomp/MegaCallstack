@@ -283,7 +283,8 @@
                          ItemsSource="{Binding FilteredSessions}"
                          SelectedItem="{Binding SelectedSession}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ItemContainerStyle="{StaticResource SessionListBoxItemStyle}">
+                         ItemContainerStyle="{StaticResource SessionListBoxItemStyle}"
+                         MouseDoubleClick="SessionViewContent_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="4">
@@ -296,10 +297,6 @@
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-                    <ListBox.InputBindings>
-                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ActivateSessionCommand}"
-                                      CommandParameter="{Binding SelectedItem, ElementName=SessionViewContent}"/>
-                    </ListBox.InputBindings>
                 </ListBox>
 
                 <!-- Delete button panel -->
