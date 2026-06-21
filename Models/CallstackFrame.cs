@@ -10,6 +10,7 @@ namespace MegaCallstack.Models
         public int HashCode { get; set; }
         public string Language { get; set; }
         public string Module { get; set; }
+        public string LineContent { get; set; }
 
         public CallstackFrame()
         {
@@ -61,6 +62,31 @@ namespace MegaCallstack.Models
             if (string.IsNullOrEmpty(FileName))
                 return FunctionName;
             return $"{FunctionName} - {FileName}:{LineNumber}";
+        }
+
+        public string BuildTooltipText()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Function: {FunctionName}");
+            if (!string.IsNullOrEmpty(FileName))
+            {
+                sb.AppendLine($"File: {FileName}");
+                sb.AppendLine($"Line: {LineNumber}");
+            }
+            if (!string.IsNullOrEmpty(LineContent))
+            {
+                sb.AppendLine($"Source: {LineContent}");
+            }
+            if (!string.IsNullOrEmpty(Language))
+            {
+                sb.AppendLine($"Language: {Language}");
+            }
+            if (!string.IsNullOrEmpty(Module))
+            {
+                sb.AppendLine($"Module: {Module}");
+            }
+            sb.Append($"Hash: {HashCode}");
+            return sb.ToString();
         }
     }
 }

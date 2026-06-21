@@ -25,6 +25,16 @@ namespace MegaCallstack.Models
         public int MergeId { get; set; }
         public bool IsLeaf { get; set; }
 
+        public string TooltipText
+        {
+            get
+            {
+                if (Frame != null)
+                    return Frame.BuildTooltipText();
+                return DisplayText;
+            }
+        }
+
         public TreeViewNode Parent
         {
             get => _parent;

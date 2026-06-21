@@ -6,22 +6,17 @@
              xmlns:local="clr-namespace:MegaCallstack.ToolWindows"
              xmlns:controls="clr-namespace:MegaCallstack.Controls"
              xmlns:models="clr-namespace:MegaCallstack.Models"
+             xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <Color x:Key="VsToolWindowBackground">#FF2D2D30</Color>
-        <Color x:Key="VsToolWindowForeground">#FFF1F1F1</Color>
-        <Color x:Key="VsControlBackground">#FF3E3E42</Color>
-        <Color x:Key="VsControlForeground">#FFF1F1F1</Color>
-        <Color x:Key="VsBorderColor">#FF555555</Color>
-
-        <SolidColorBrush x:Key="ToolWindowBackgroundBrush" Color="{StaticResource VsToolWindowBackground}"/>
-        <SolidColorBrush x:Key="ToolWindowForegroundBrush" Color="{StaticResource VsToolWindowForeground}"/>
-        <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{StaticResource VsControlBackground}"/>
-        <SolidColorBrush x:Key="ControlForegroundBrush" Color="{StaticResource VsControlForeground}"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource VsBorderColor}"/>
+        <SolidColorBrush x:Key="ToolWindowBackgroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelColorKey}}"/>
+        <SolidColorBrush x:Key="ToolWindowForegroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelTextColorKey}}"/>
+        <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.ListBoxColorKey}}"/>
+        <SolidColorBrush x:Key="ControlForegroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelTextColorKey}}"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.GridLineColorKey}}"/>
 
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
         <local:BoolToBoldConverter x:Key="BoldConverter"/>
@@ -47,10 +42,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF505054"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ActionButtonBackgroundActiveBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF606064"/>
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ActionButtonBackgroundBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4"/>
@@ -71,7 +66,7 @@
             <Setter Property="CaretBrush" Value="{StaticResource ControlForegroundBrush}"/>
         </Style>
 
-        <Style x:Key="TreeViewItemStyle" TargetType="TreeViewItem">
+        <Style x:Key="TreeViewItemStyle" TargetType="controls:CallstackTreeViewItem">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
             <Setter Property="FontWeight" Value="{Binding IsBold, Converter={StaticResource BoldConverter}}"/>
@@ -152,7 +147,7 @@
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -160,7 +155,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FF2A2D2E"/>
+                    <Setter Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -180,10 +175,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FF2A2D2E"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -223,6 +218,10 @@
                     <WrapPanel Margin="4">
                         <Button Content="New Session" Style="{StaticResource ToolbarButton}"
                                 Command="{Binding CreateSessionCommand}"/>
+                        <TextBox x:Name="SessionFilterBox" Style="{StaticResource SearchTextBox}"
+                                 Width="200" VerticalAlignment="Center"
+                                 Text="{Binding SessionFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 GotFocus="SearchBox_GotFocus"/>
                     </WrapPanel>
                 </StackPanel>
             </Grid>
@@ -235,42 +234,25 @@
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
-                <TreeView x:Name="MainTreeView"
+                <controls:CallstackTreeView x:Name="MainTreeView"
                           Background="Transparent"
                           BorderThickness="0"
                           TreeViewItem.Selected="TreeView_Selected"
                           TreeViewItem.Collapsed="TreeViewItem_ExpandedCollapsed"
                           TreeViewItem.Expanded="TreeViewItem_ExpandedCollapsed"
+                          controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
                           ItemContainerStyle="{StaticResource TreeViewItemStyle}">
-                    <TreeView.ItemTemplate>
+                    <controls:CallstackTreeView.ItemTemplate>
                         <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel.ToolTip>
-                                    <ToolTip>
-                                        <StackPanel Background="{DynamicResource {x:Static SystemColors.InfoBrushKey}}">
-                                            <TextBlock Text="{Binding DisplayText}"
-                                                       Foreground="{DynamicResource {x:Static SystemColors.InfoTextBrushKey}}"
-                                                       FontWeight="Bold"/>
-                                            <TextBlock Text="{Binding Frame.FileName, StringFormat='File: {0}'}"
-                                                       Foreground="{DynamicResource {x:Static SystemColors.InfoTextBrushKey}}"
-                                                       Visibility="{Binding Frame.FileName, Converter={StaticResource BoolToVis}}"/>
-                                            <TextBlock Text="{Binding Frame.LineNumber, StringFormat='Line: {0}'}"
-                                                       Foreground="{DynamicResource {x:Static SystemColors.InfoTextBrushKey}}"
-                                                       Visibility="{Binding Frame.FileName, Converter={StaticResource BoolToVis}}"/>
-                                            <TextBlock Text="{Binding Frame.Module, StringFormat='Module: {0}'}"
-                                                       Foreground="{DynamicResource {x:Static SystemColors.InfoTextBrushKey}}"
-                                                       Visibility="{Binding Frame.Module, Converter={StaticResource BoolToVis}}"/>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </StackPanel.ToolTip>
+                            <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
                                 <controls:HighlightTextBlock Text="{Binding DisplayText}"
                                                              HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                              HighlightBackground="#FFFFFF00"
                                                              Foreground="{StaticResource ControlForegroundBrush}"/>
                             </StackPanel>
                         </HierarchicalDataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
+                    </controls:CallstackTreeView.ItemTemplate>
+                </controls:CallstackTreeView>
             </ScrollViewer>
 
             <!-- Session View content -->
@@ -278,7 +260,7 @@
                      Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}"
                      Background="Transparent"
                      BorderThickness="0"
-                     ItemsSource="{Binding Sessions}"
+                     ItemsSource="{Binding FilteredSessions}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ItemContainerStyle="{StaticResource SessionListBoxItemStyle}">
                 <ListBox.ItemTemplate>
