@@ -1,53 +1,75 @@
 ﻿using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
 using System;
+using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
+using MegaCallstack.ToolWindows;
 using Task = System.Threading.Tasks.Task;
 
 namespace MegaCallstack
 {
-    /// <summary>
-    /// This is the class that implements the package exposed by this assembly.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The minimum requirement for a class to be considered a valid package for Visual Studio
-    /// is to implement the IVsPackage interface and register itself with the shell.
-    /// This package uses the helper classes defined inside the Managed Package Framework (MPF)
-    /// to do it: it derives from the Package class that provides the implementation of the
-    /// IVsPackage interface and uses the registration attributes defined in the framework to
-    /// register itself and its components with the shell. These attributes tell the pkgdef creation
-    /// utility what data to put into .pkgdef file.
-    /// </para>
-    /// <para>
-    /// To get loaded into VS, the package must be referred by &lt;Asset Type="Microsoft.VisualStudio.VsPackage" ...&gt; in .vsixmanifest file.
-    /// </para>
-    /// </remarks>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(MegaCallstackPackage.PackageGuidString)]
+    [ProvideMenuResource("Menus.ctmenu", 1)]
+    [ProvideToolWindow(typeof(MegaCallstackToolWindow), Style = Microsoft.VisualStudio.Shell.VsDockStyle.Tabbed, Window = "3ae79031-e1bc-11d0-8f78-00a0c9110057")]
     public sealed class MegaCallstackPackage : AsyncPackage
     {
-        /// <summary>
-        /// MegaCallstackPackage GUID string.
-        /// </summary>
         public const string PackageGuidString = "76259f0b-18fa-4a6e-8d6b-7b29270be2f1";
+        public const string CommandSetGuidString = "b5c8e1a2-3f4d-4e5a-9b6c-7d8e9f0a1b2c";
 
-        #region Package Members
-
-        /// <summary>
-        /// Initialization of the package; this method is called right after the package is sited, so this is the place
-        /// where you can put all the initialization code that rely on services provided by VisualStudio.
-        /// </summary>
-        /// <param name="cancellationToken">A cancellation token to monitor for initialization cancellation, which can occur when VS is shutting down.</param>
-        /// <param name="progress">A provider for progress updates.</param>
-        /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            // When initialized asynchronously, the current thread may be a background thread at this point.
-            // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            await ShowMegaCallstackWindowCommand.InitializeAsync(this);
+        }
+    }
+
+    internal sealed class ShowMegaCallstackWindowCommand
+    {
+        public const int CommandId = 0x0100;
+        public static readonly Guid CommandSet = new Guid(MegaCallstackPackage.CommandSetGuidString);
+
+        private readonly AsyncPackage _package;
+
+        private ShowMegaCallstackWindowCommand(AsyncPackage package, OleMenuCommandService commandService)
+        {
+            _package = package ?? throw new ArgumentNullException(nameof(package));
+            commandService = commandService ?? throw new ArgumentNullException(nameof(commandService));
+
+            var menuCommandID = new CommandID(CommandSet, CommandId);
+            var menuItem = new MenuCommand(Execute, menuCommandID);
+            commandService.AddCommand(menuItem);
         }
 
-        #endregion
+        public static ShowMegaCallstackWindowCommand Instance { get; private set; }
+
+        private Microsoft.VisualStudio.Shell.IAsyncServiceProvider ServiceProvider => _package;
+
+        public static async Task InitializeAsync(AsyncPackage package)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
+
+            OleMenuCommandService commandService = await package.GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
+            Instance = new ShowMegaCallstackWindowCommand(package, commandService);
+        }
+
+        private void Execute(object sender, EventArgs e)
+        {
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                ToolWindowPane window = await _package.FindToolWindowAsync(typeof(MegaCallstackToolWindow), 0, true, _package.DisposalToken);
+                if (window?.Frame == null)
+                {
+                    throw new NotSupportedException("Cannot create Mega Callstack tool window.");
+                }
+
+                IVsWindowFrame windowFrame = (IVsWindowFrame)window.Frame;
+                Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
+            });
+        }
     }
 }

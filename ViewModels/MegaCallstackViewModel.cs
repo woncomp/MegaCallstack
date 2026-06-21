@@ -1,0 +1,473 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using System.Windows.Media;
+using MegaCallstack.Models;
+using MegaCallstack.Services;
+
+namespace MegaCallstack.ViewModels
+{
+    public class MegaCallstackViewModel : INotifyPropertyChanged
+    {
+        private readonly CallstackManager _manager;
+
+        private ObservableCollection<TreeViewNode> _treeNodes = new ObservableCollection<TreeViewNode>();
+        private TreeViewNode _selectedNode;
+        private string _searchText;
+        private List<TreeViewNode> _searchMatches = new List<TreeViewNode>();
+        private int _currentMatchIndex = -1;
+        private bool _isTreeViewMode = true;
+        private string _activeSessionName;
+        private bool _isRenaming;
+        private string _renameText;
+        private CallstackSession _activeSession;
+
+        public CallstackManager Manager => _manager;
+        public CallstackSession ActiveSession => _activeSession;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        public event Action<string, int> NavigateToFile;
+        public event Action TreeUpdated;
+
+        public MegaCallstackViewModel(CallstackManager manager)
+        {
+            _manager = manager;
+
+            CaptureCommand = new RelayCommand(ExecuteCapture, CanCapture);
+            SearchCommand = new RelayCommand(ExecuteSearch);
+            PrevMatchCommand = new RelayCommand(ExecutePrevMatch, CanNavigateMatches);
+            NextMatchCommand = new RelayCommand(ExecuteNextMatch, CanNavigateMatches);
+            DoubleClickNodeCommand = new RelayCommand(ExecuteDoubleClickNode);
+            JumpToCallerCommand = new RelayCommand(ExecuteJumpToCaller, CanJumpToCaller);
+            JumpToFrameCommand = new RelayCommand(ExecuteJumpToFrame, CanJumpToFrame);
+            SetColorCommand = new RelayCommand<string>(ExecuteSetColor);
+            ClearColorCommand = new RelayCommand(ExecuteClearColor);
+            SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
+            SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
+            CreateSessionCommand = new RelayCommand(ExecuteCreateSession);
+            ActivateSessionCommand = new RelayCommand<CallstackSession>(ExecuteActivateSession);
+            StartRenameCommand = new RelayCommand(ExecuteStartRename);
+            ConfirmRenameCommand = new RelayCommand(ExecuteConfirmRename);
+            CancelRenameCommand = new RelayCommand(ExecuteCancelRename);
+        }
+
+        public ObservableCollection<TreeViewNode> TreeNodes
+        {
+            get => _treeNodes;
+            set { _treeNodes = value; OnPropertyChanged(); }
+        }
+
+        public TreeViewNode SelectedNode
+        {
+            get => _selectedNode;
+            set
+            {
+                if (_selectedNode != value)
+                {
+                    if (_selectedNode != null)
+                        _selectedNode.IsSelected = false;
+
+                    _selectedNode = value;
+
+                    if (_selectedNode != null)
+                        _selectedNode.IsSelected = true;
+
+                    UpdatePathBolding();
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string SearchText
+        {
+            get => _searchText;
+            set { _searchText = value; OnPropertyChanged(); }
+        }
+
+        public bool IsTreeViewMode
+        {
+            get => _isTreeViewMode;
+            set { _isTreeViewMode = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsSessionViewMode)); }
+        }
+
+        public bool IsSessionViewMode => !IsTreeViewMode;
+
+        public string ActiveSessionName
+        {
+            get => _activeSessionName;
+            set { _activeSessionName = value; OnPropertyChanged(); }
+        }
+
+        public bool IsRenaming
+        {
+            get => _isRenaming;
+            set { _isRenaming = value; OnPropertyChanged(); }
+        }
+
+        public string RenameText
+        {
+            get => _renameText;
+            set { _renameText = value; OnPropertyChanged(); }
+        }
+
+        public ObservableCollection<CallstackSession> Sessions { get; } = new ObservableCollection<CallstackSession>();
+
+        public ICommand CaptureCommand { get; }
+        public ICommand SearchCommand { get; }
+        public ICommand PrevMatchCommand { get; }
+        public ICommand NextMatchCommand { get; }
+        public ICommand DoubleClickNodeCommand { get; }
+        public ICommand JumpToCallerCommand { get; }
+        public ICommand JumpToFrameCommand { get; }
+        public ICommand SetColorCommand { get; }
+        public ICommand ClearColorCommand { get; }
+        public ICommand SwitchToSessionViewCommand { get; }
+        public ICommand SwitchToTreeViewCommand { get; }
+        public ICommand CreateSessionCommand { get; }
+        public ICommand ActivateSessionCommand { get; }
+        public ICommand StartRenameCommand { get; }
+        public ICommand ConfirmRenameCommand { get; }
+        public ICommand CancelRenameCommand { get; }
+
+        public void LoadData()
+        {
+            _activeSession = _manager.GetActiveSession();
+            if (_activeSession == null)
+            {
+                _activeSession = _manager.CreateSession("Default");
+            }
+
+            _manager.SetActiveSession(_activeSession.Id);
+            ActiveSessionName = _activeSession.Name;
+
+            RefreshTreeNodes();
+            RefreshSessionsList();
+        }
+
+        private void RefreshTreeNodes()
+        {
+            var nodes = _manager.BuildTreeNodes(_activeSession);
+            TreeNodes = new ObservableCollection<TreeViewNode>(nodes);
+            TreeUpdated?.Invoke();
+        }
+
+        private void RefreshSessionsList()
+        {
+            Sessions.Clear();
+            foreach (var session in _manager.SessionData.Sessions)
+            {
+                Sessions.Add(session);
+            }
+        }
+
+        private async void ExecuteCapture()
+        {
+            var callstack = await _manager.CaptureCurrentCallstackAsync();
+            if (callstack == null)
+                return;
+
+            if (_activeSession == null)
+            {
+                _activeSession = _manager.CreateSession("Default");
+                _manager.SetActiveSession(_activeSession.Id);
+                ActiveSessionName = _activeSession.Name;
+            }
+
+            if (string.IsNullOrEmpty(_activeSession.Name) || _activeSession.Name == "Default")
+            {
+                var leafFrame = callstack.Frames.LastOrDefault();
+                if (leafFrame != null)
+                {
+                    _activeSession.Name = leafFrame.FunctionName;
+                    ActiveSessionName = _activeSession.Name;
+                }
+            }
+
+            _manager.AddOrUpdateCallstack(_activeSession, callstack);
+            await _manager.SaveDataAsync();
+
+            RefreshTreeNodes();
+            RefreshSessionsList();
+        }
+
+        private bool CanCapture()
+        {
+            return true;
+        }
+
+        private void ExecuteSearch()
+        {
+            _searchMatches.Clear();
+            _currentMatchIndex = -1;
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return;
+
+            var searchLower = SearchText.ToLower();
+            foreach (var rootNode in TreeNodes)
+            {
+                CollectMatchingNodes(rootNode, searchLower, _searchMatches);
+            }
+
+            if (_searchMatches.Count > 0)
+            {
+                _currentMatchIndex = 0;
+                NavigateToMatch(_searchMatches[0]);
+            }
+        }
+
+        private void CollectMatchingNodes(TreeViewNode node, string searchText, List<TreeViewNode> matches)
+        {
+            if (node.DisplayText != null && node.DisplayText.ToLower().Contains(searchText))
+            {
+                matches.Add(node);
+            }
+
+            foreach (var child in node.Children)
+            {
+                CollectMatchingNodes(child, searchText, matches);
+            }
+        }
+
+        private bool CanNavigateMatches()
+        {
+            return _searchMatches.Count > 0;
+        }
+
+        private void ExecutePrevMatch()
+        {
+            if (_searchMatches.Count == 0)
+                return;
+
+            _currentMatchIndex = (_currentMatchIndex - 1 + _searchMatches.Count) % _searchMatches.Count;
+            NavigateToMatch(_searchMatches[_currentMatchIndex]);
+        }
+
+        private void ExecuteNextMatch()
+        {
+            if (_searchMatches.Count == 0)
+                return;
+
+            _currentMatchIndex = (_currentMatchIndex + 1) % _searchMatches.Count;
+            NavigateToMatch(_searchMatches[_currentMatchIndex]);
+        }
+
+        private void NavigateToMatch(TreeViewNode node)
+        {
+            ExpandAncestors(node);
+            SelectedNode = node;
+        }
+
+        private void ExpandAncestors(TreeViewNode node)
+        {
+            var parent = node.Parent;
+            while (parent != null)
+            {
+                parent.IsExpanded = true;
+                parent = parent.Parent;
+            }
+        }
+
+        private void ExecuteDoubleClickNode()
+        {
+            if (CanJumpToCaller())
+                ExecuteJumpToCaller();
+        }
+
+        private bool CanJumpToCaller()
+        {
+            return SelectedNode?.Parent?.Frame != null;
+        }
+
+        private void ExecuteJumpToCaller()
+        {
+            var parent = SelectedNode?.Parent;
+            if (parent?.Frame != null)
+            {
+                NavigateToFile?.Invoke(parent.Frame.FileName, parent.Frame.LineNumber);
+            }
+        }
+
+        private bool CanJumpToFrame()
+        {
+            return SelectedNode?.Frame != null && !SelectedNode.IsLeaf;
+        }
+
+        private void ExecuteJumpToFrame()
+        {
+            if (SelectedNode?.Frame != null)
+            {
+                NavigateToFile?.Invoke(SelectedNode.Frame.FileName, SelectedNode.Frame.LineNumber);
+            }
+        }
+
+        private void ExecuteSetColor(string hexColor)
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return;
+
+            var color = (Color)ColorConverter.ConvertFromString(hexColor);
+            var brush = new SolidColorBrush(color);
+
+            SelectedNode.SetColorAndPropagate(brush);
+
+            if (SelectedNode.Frame != null)
+            {
+                _activeSession.NodeColors[SelectedNode.MergeId] = hexColor;
+                SaveDataAsync();
+            }
+        }
+
+        private void ExecuteClearColor()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return;
+
+            if (SelectedNode.Frame != null)
+            {
+                _activeSession.NodeColors.Remove(SelectedNode.MergeId);
+                SaveDataAsync();
+            }
+
+            SelectedNode.ClearColorAndPropagate();
+        }
+
+        private async void SaveDataAsync()
+        {
+            await _manager.SaveDataAsync();
+        }
+
+        private void UpdatePathBolding()
+        {
+            foreach (var rootNode in TreeNodes)
+            {
+                ClearBoldRecursive(rootNode);
+            }
+
+            if (_selectedNode != null)
+            {
+                _selectedNode.SetPathBold(true);
+            }
+        }
+
+        private void ClearBoldRecursive(TreeViewNode node)
+        {
+            node.IsBold = false;
+            foreach (var child in node.Children)
+            {
+                ClearBoldRecursive(child);
+            }
+        }
+
+        private void ExecuteSwitchToSessionView()
+        {
+            IsTreeViewMode = false;
+            RefreshSessionsList();
+        }
+
+        private void ExecuteSwitchToTreeView()
+        {
+            IsTreeViewMode = true;
+        }
+
+        private void ExecuteCreateSession()
+        {
+            var session = _manager.CreateSession("New Session");
+            _manager.SetActiveSession(session.Id);
+            _activeSession = session;
+            ActiveSessionName = session.Name;
+
+            RefreshTreeNodes();
+            RefreshSessionsList();
+        }
+
+        private void ExecuteActivateSession(CallstackSession session)
+        {
+            if (session == null)
+                return;
+
+            _manager.SetActiveSession(session.Id);
+            _activeSession = session;
+            ActiveSessionName = session.Name;
+
+            RefreshTreeNodes();
+            RefreshSessionsList();
+
+            IsTreeViewMode = true;
+        }
+
+        private void ExecuteStartRename()
+        {
+            RenameText = ActiveSessionName;
+            IsRenaming = true;
+        }
+
+        private async void ExecuteConfirmRename()
+        {
+            if (_activeSession != null && !string.IsNullOrWhiteSpace(RenameText))
+            {
+                _activeSession.Name = RenameText;
+                ActiveSessionName = RenameText;
+                await _manager.SaveDataAsync();
+                RefreshSessionsList();
+            }
+            IsRenaming = false;
+        }
+
+        private void ExecuteCancelRename()
+        {
+            IsRenaming = false;
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
+    public class RelayCommand : ICommand
+    {
+        private readonly Action _execute;
+        private readonly Func<bool> _canExecute;
+
+        public RelayCommand(Action execute, Func<bool> canExecute = null)
+        {
+            _execute = execute;
+            _canExecute = canExecute;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public bool CanExecute(object parameter) => _canExecute?.Invoke() ?? true;
+        public void Execute(object parameter) => _execute?.Invoke();
+    }
+
+    public class RelayCommand<T> : ICommand
+    {
+        private readonly Action<T> _execute;
+        private readonly Func<T, bool> _canExecute;
+
+        public RelayCommand(Action<T> execute, Func<T, bool> canExecute = null)
+        {
+            _execute = execute;
+            _canExecute = canExecute;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public bool CanExecute(object parameter) => _canExecute?.Invoke((T)parameter) ?? true;
+        public void Execute(object parameter) => _execute?.Invoke((T)parameter);
+    }
+}
