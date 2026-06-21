@@ -26,6 +26,7 @@ namespace MegaCallstack.ViewModels
         private bool _isRenaming;
         private string _renameText;
         private CallstackSession _activeSession;
+        private CallstackSession _selectedSession;
         private string _sessionFilterText;
 
         public CallstackManager Manager => _manager;
@@ -56,6 +57,7 @@ namespace MegaCallstack.ViewModels
             ConfirmRenameCommand = new RelayCommand(ExecuteConfirmRename);
             CancelRenameCommand = new RelayCommand(ExecuteCancelRename);
             DeleteSessionCommand = new RelayCommand<CallstackSession>(ExecuteDeleteSession);
+            DeleteSelectedSessionCommand = new RelayCommand(ExecuteDeleteSelectedSession, CanDeleteSelectedSession);
         }
 
         public ObservableCollection<TreeViewNode> TreeNodes
@@ -107,6 +109,12 @@ namespace MegaCallstack.ViewModels
 
         public bool HasActiveSession => _activeSession != null;
 
+        public CallstackSession SelectedSession
+        {
+            get => _selectedSession;
+            set { _selectedSession = value; OnPropertyChanged(); }
+        }
+
         public bool IsRenaming
         {
             get => _isRenaming;
@@ -150,6 +158,7 @@ namespace MegaCallstack.ViewModels
         public ICommand ConfirmRenameCommand { get; }
         public ICommand CancelRenameCommand { get; }
         public ICommand DeleteSessionCommand { get; }
+        public ICommand DeleteSelectedSessionCommand { get; }
 
         public void LoadData()
         {
@@ -488,6 +497,21 @@ namespace MegaCallstack.ViewModels
             }
 
             RefreshSessionsList();
+        }
+
+        private bool CanDeleteSelectedSession()
+        {
+            return _selectedSession != null;
+        }
+
+        private void ExecuteDeleteSelectedSession()
+        {
+            if (_selectedSession == null)
+                return;
+
+            ExecuteDeleteSession(_selectedSession);
+            _selectedSession = null;
+            OnPropertyChanged(nameof(SelectedSession));
         }
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)

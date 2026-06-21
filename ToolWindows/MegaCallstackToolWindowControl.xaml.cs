@@ -117,6 +117,23 @@ namespace MegaCallstack.ToolWindows
                 _viewModel?.CancelRenameCommand.Execute(null);
             }
         }
+
+        private void DeleteSelectedSession_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel?.SelectedSession == null)
+                return;
+
+            var result = MessageBox.Show(
+                $"Are you sure you want to delete session '{_viewModel.SelectedSession.Name}'?",
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _viewModel.DeleteSelectedSessionCommand.Execute(null);
+            }
+        }
     }
 
     public class InverseBoolToVisibilityConverter : IValueConverter

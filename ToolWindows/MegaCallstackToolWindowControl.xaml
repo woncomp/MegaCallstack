@@ -270,30 +270,48 @@
             </ScrollViewer>
 
             <!-- Session View content -->
-            <ListBox x:Name="SessionViewContent"
-                     Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     ItemsSource="{Binding FilteredSessions}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ItemContainerStyle="{StaticResource SessionListBoxItemStyle}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="4">
-                            <TextBlock Text="{Binding Name}"
-                                       Foreground="{StaticResource ControlForegroundBrush}"
-                                       FontSize="14"/>
-                            <TextBlock Foreground="{StaticResource ControlForegroundBrush}"
-                                       Opacity="0.6" FontSize="11"
-                                       Text="{Binding Callstacks.Count, StringFormat='Captured: {0} callstacks'}"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                <ListBox.InputBindings>
-                    <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ActivateSessionCommand}"
-                                  CommandParameter="{Binding SelectedItem, ElementName=SessionViewContent}"/>
-                </ListBox.InputBindings>
-            </ListBox>
+            <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ListBox x:Name="SessionViewContent"
+                         Grid.Column="0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ItemsSource="{Binding FilteredSessions}"
+                         SelectedItem="{Binding SelectedSession}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemContainerStyle="{StaticResource SessionListBoxItemStyle}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{StaticResource ControlForegroundBrush}"
+                                           FontSize="14"/>
+                                <TextBlock Foreground="{StaticResource ControlForegroundBrush}"
+                                           Opacity="0.6" FontSize="11"
+                                           Text="{Binding CreatedTime, StringFormat='Created: {0:yyyy-MM-dd HH:mm}'}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.InputBindings>
+                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ActivateSessionCommand}"
+                                      CommandParameter="{Binding SelectedItem, ElementName=SessionViewContent}"/>
+                    </ListBox.InputBindings>
+                </ListBox>
+
+                <!-- Delete button panel -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="4,0,0,0"
+                            Visibility="{Binding SelectedSession, Converter={StaticResource BoolToVis}}">
+                    <Button Style="{StaticResource ToolbarButton}" Padding="4,2"
+                            Click="DeleteSelectedSession_Click"
+                            ToolTip="Delete selected session">
+                        <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Cancel}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- Bottom status bar -->
@@ -309,26 +327,11 @@
                     <TextBlock Text="Session: " Foreground="{StaticResource ControlForegroundBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding ActiveSessionName}"
                                Foreground="{StaticResource ControlForegroundBrush}"
-                               VerticalAlignment="Center"
-                               Visibility="{Binding IsRenaming, Converter={StaticResource InverseBoolToVis}}"/>
-                    <TextBox Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource SearchTextBox}"
-                             Width="200"
-                             Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"
-                             KeyDown="RenameTextBox_KeyDown"/>
+                               VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Right: buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="Rename" Style="{StaticResource ToolbarButton}"
-                            Command="{Binding StartRenameCommand}"
-                            Visibility="{Binding IsRenaming, Converter={StaticResource InverseBoolToVis}}"/>
-                    <Button Content="OK" Style="{StaticResource ToolbarButton}"
-                            Command="{Binding ConfirmRenameCommand}"
-                            Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"/>
-                    <Button Content="Cancel" Style="{StaticResource ToolbarButton}"
-                            Command="{Binding CancelRenameCommand}"
-                            Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}"/>
                     <Button Content="Sessions" Style="{StaticResource ToolbarButton}"
                             Command="{Binding SwitchToSessionViewCommand}"
                             Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}"/>
