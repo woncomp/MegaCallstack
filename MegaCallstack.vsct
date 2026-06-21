@@ -4,17 +4,23 @@
   <Extern href="vsshlids.h"/>
 
   <Commands package="guidMegaCallstackPackage">
+    <Menus>
+      <Menu guid="guidMegaCallstackCmdSet" id="MegaCallstackSubMenu" priority="0x0600" type="Menu">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_MM_TOOLSADDINS"/>
+        <Strings>
+          <ButtonText>Mega Callstack</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
     <Groups>
       <Group guid="guidMegaCallstackCmdSet" id="MegaCallstackMenuGroup" priority="0x0600">
-        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS"/>
+        <Parent guid="guidMegaCallstackCmdSet" id="MegaCallstackSubMenu"/>
       </Group>
     </Groups>
 
     <Buttons>
       <Button guid="guidMegaCallstackCmdSet" id="cmdIdShowMegaCallstackWindow" priority="0x0100" type="Button">
         <Parent guid="guidMegaCallstackCmdSet" id="MegaCallstackMenuGroup"/>
-        <CommandFlag>DynamicVisibility</CommandFlag>
-        <CommandFlag>DefaultInvisible</CommandFlag>
         <Strings>
           <ButtonText>Mega Callstack Window</ButtonText>
         </Strings>
@@ -25,6 +31,7 @@
   <Symbols>
     <GuidSymbol name="guidMegaCallstackPackage" value="{76259f0b-18fa-4a6e-8d6b-7b29270be2f1}"/>
     <GuidSymbol name="guidMegaCallstackCmdSet" value="{b5c8e1a2-3f4d-4e5a-9b6c-7d8e9f0a1b2c}">
+      <IDSymbol name="MegaCallstackSubMenu" value="0x1010"/>
       <IDSymbol name="MegaCallstackMenuGroup" value="0x1020"/>
       <IDSymbol name="cmdIdShowMegaCallstackWindow" value="0x0100"/>
     </GuidSymbol>

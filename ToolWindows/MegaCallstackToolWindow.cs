@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -11,7 +12,8 @@ namespace MegaCallstack.ToolWindows
 
         public MegaCallstackToolWindow() : base(null)
         {
-            Caption = "Mega Callstack";
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            Caption = $"Mega Callstack - {version}";
             Content = new MegaCallstackToolWindowControl();
         }
     }
