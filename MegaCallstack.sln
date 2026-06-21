@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.37411.7 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MegaCallstack", "MegaCallstack.csproj", "{64DB4F50-6DA9-4266-9A20-FC9F122D49BB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MegaCallstack.Tests", "MegaCallstack.Tests\MegaCallstack.Tests.csproj", "{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{64DB4F50-6DA9-4266-9A20-FC9F122D49BB}.Release|arm64.Build.0 = Release|arm64
 		{64DB4F50-6DA9-4266-9A20-FC9F122D49BB}.Release|x86.ActiveCfg = Release|x86
 		{64DB4F50-6DA9-4266-9A20-FC9F122D49BB}.Release|x86.Build.0 = Release|x86
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|arm64.Build.0 = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Debug|x86.Build.0 = Debug|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|arm64.ActiveCfg = Release|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|arm64.Build.0 = Release|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|x86.ActiveCfg = Release|Any CPU
+		{8A3B5C7D-9E0F-1A2B-3C4D-5E6F7A8B9C0D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
