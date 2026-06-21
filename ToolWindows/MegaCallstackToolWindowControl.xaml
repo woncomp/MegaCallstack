@@ -6,7 +6,9 @@
              xmlns:local="clr-namespace:MegaCallstack.ToolWindows"
              xmlns:controls="clr-namespace:MegaCallstack.Controls"
              xmlns:models="clr-namespace:MegaCallstack.Models"
-             xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+              xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+              xmlns:vsimg="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.Imaging"
+              xmlns:vscat="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.ImageCatalog"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
@@ -26,8 +28,8 @@
             <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}"/>
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Margin" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -198,32 +200,44 @@
         <Border Grid.Row="0" Background="{StaticResource ControlBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
             <Grid>
                 <!-- Tree View toolbar -->
-                <StackPanel x:Name="TreeViewToolbar" Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
-                    <WrapPanel Margin="4">
-                        <Button Content="Capture" Style="{StaticResource ToolbarButton}"
-                                Command="{Binding CaptureCommand}"/>
-                        <TextBox x:Name="SearchBox" Style="{StaticResource SearchTextBox}"
-                                 Width="200" VerticalAlignment="Center"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 GotFocus="SearchBox_GotFocus"/>
-                        <Button Content="Prev" Style="{StaticResource ToolbarButton}"
-                                Command="{Binding PrevMatchCommand}"/>
-                        <Button Content="Next" Style="{StaticResource ToolbarButton}"
-                                Command="{Binding NextMatchCommand}"/>
-                    </WrapPanel>
-                </StackPanel>
+                <Grid x:Name="TreeViewToolbar" Margin="2,1" Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource ToolbarButton}" Command="{Binding CaptureCommand}"
+                            ToolTip="Capture Callstack" Padding="4,2">
+                        <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.CaptureFrame}" />
+                    </Button>
+                    <TextBox x:Name="SearchBox" Grid.Column="1" Style="{StaticResource SearchTextBox}"
+                             Margin="2,0" VerticalAlignment="Center"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             GotFocus="SearchBox_GotFocus"/>
+                    <Button Grid.Column="2" Style="{StaticResource ToolbarButton}" Command="{Binding PrevMatchCommand}"
+                            ToolTip="Previous Match" Padding="4,2">
+                        <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.MoveUp}" />
+                    </Button>
+                    <Button Grid.Column="3" Style="{StaticResource ToolbarButton}" Command="{Binding NextMatchCommand}"
+                            ToolTip="Next Match" Padding="4,2">
+                        <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.MoveDown}" />
+                    </Button>
+                </Grid>
 
                 <!-- Session View toolbar -->
-                <StackPanel x:Name="SessionViewToolbar" Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
-                    <WrapPanel Margin="4">
-                        <Button Content="New Session" Style="{StaticResource ToolbarButton}"
-                                Command="{Binding CreateSessionCommand}"/>
-                        <TextBox x:Name="SessionFilterBox" Style="{StaticResource SearchTextBox}"
-                                 Width="200" VerticalAlignment="Center"
-                                 Text="{Binding SessionFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                 GotFocus="SearchBox_GotFocus"/>
-                    </WrapPanel>
-                </StackPanel>
+                <Grid x:Name="SessionViewToolbar" Margin="2,1" Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Style="{StaticResource ToolbarButton}" Command="{Binding CreateSessionCommand}"
+                            Padding="4,2" Content="New Session"/>
+                    <TextBox x:Name="SessionFilterBox" Grid.Column="1" Style="{StaticResource SearchTextBox}"
+                             Margin="2,0" VerticalAlignment="Center"
+                             Text="{Binding SessionFilterText, UpdateSourceTrigger=PropertyChanged}"
+                             GotFocus="SearchBox_GotFocus"/>
+                </Grid>
             </Grid>
         </Border>
 
