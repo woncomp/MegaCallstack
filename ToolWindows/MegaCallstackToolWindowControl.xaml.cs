@@ -79,6 +79,14 @@ namespace MegaCallstack.ToolWindows
             }
         }
 
+        private void TreeViewItem_DoubleClick(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.DoubleClickNodeCommand.Execute(null);
+            }
+        }
+
         private void TreeViewItem_ExpandedCollapsed(object sender, RoutedEventArgs e)
         {
             if (sender is TreeViewItem tvi && tvi.DataContext is TreeViewNode node && _viewModel != null)
@@ -92,7 +100,10 @@ namespace MegaCallstack.ToolWindows
 
         private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
         {
-            SearchBox.SelectAll();
+            if (sender is TextBox textBox)
+            {
+                textBox.SelectAll();
+            }
         }
 
         private void RenameTextBox_KeyDown(object sender, KeyEventArgs e)

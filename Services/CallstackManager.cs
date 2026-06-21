@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using EnvDTE;
 using EnvDTE90a;
@@ -15,7 +16,9 @@ namespace MegaCallstack.Services
     {
         private readonly DTE _dte;
         private SolutionSessionData _sessionData;
-        private string _dataFilePath;
+        private string _dataDirectory;
+
+        private static readonly Random _random = new Random();
 
         public SolutionSessionData SessionData => _sessionData;
 
@@ -55,87 +58,310 @@ namespace MegaCallstack.Services
             return null;
         }
 
-        private string GetDataFilePath()
+        private string GetDataDirectory()
         {
             var solutionDir = GetSolutionDirectory();
             var solutionName = GetSolutionName();
             if (solutionDir == null || solutionName == null)
                 return null;
 
-            return Path.Combine(solutionDir, ".vs", solutionName, Constants.DataFolderName, Constants.DataFileName);
+            return Path.Combine(solutionDir, ".vs", solutionName, Constants.DataFolderName);
+        }
+
+        private async Task SwitchToMainThreadIfNeededAsync()
+        {
+            if (_dte != null)
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            }
         }
 
         public async Task LoadDataAsync()
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await SwitchToMainThreadIfNeededAsync();
 
-            _dataFilePath = GetDataFilePath();
-            if (_dataFilePath == null)
+            if (_dataDirectory == null)
+            {
+                _dataDirectory = GetDataDirectory();
+            }
+
+            if (_dataDirectory == null)
             {
                 Logger.Log("LoadData: No solution open, using empty data");
                 _sessionData = new SolutionSessionData();
                 return;
             }
 
-            Logger.Log($"LoadData: Path={_dataFilePath}");
+            Logger.Log($"LoadData: Directory={_dataDirectory}");
 
-            if (File.Exists(_dataFilePath))
+            _sessionData = new SolutionSessionData();
+
+            if (!Directory.Exists(_dataDirectory))
             {
+                Logger.Log("LoadData: Directory not found, using empty data");
+                return;
+            }
+
+            foreach (var folder in Directory.GetDirectories(_dataDirectory).OrderBy(d => d))
+            {
+                var sessionFile = Path.Combine(folder, Constants.SessionFileName);
+                if (!File.Exists(sessionFile))
+                    continue;
+
                 try
                 {
-                    var json = File.ReadAllText(_dataFilePath);
-                    _sessionData = JsonConvert.DeserializeObject<SolutionSessionData>(json)
-                                   ?? new SolutionSessionData();
-                    Logger.Log($"LoadData: Loaded {_sessionData.Sessions.Count} sessions, active={_sessionData.ActiveSessionId}");
+                    var json = File.ReadAllText(sessionFile);
+                    var session = JsonConvert.DeserializeObject<CallstackSession>(json);
+                    if (session != null)
+                    {
+                        session.FolderName = Path.GetFileName(folder);
+                        session.Callstacks = new List<CallstackData>();
+                        session.NodeColors = new Dictionary<int, string>();
+                        session.CollapsedNodes = new Dictionary<int, bool>();
+                        session.IsLoaded = false;
+                        _sessionData.Sessions.Add(session);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error("LoadData: Failed to deserialize", ex);
-                    _sessionData = new SolutionSessionData();
+                    Logger.Error($"LoadData: Failed to load session from {folder}", ex);
                 }
             }
-            else
+
+            Logger.Log($"LoadData: Loaded {_sessionData.Sessions.Count} session metadata");
+        }
+
+        public async Task LoadSessionDetailsAsync(CallstackSession session)
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (session == null || session.IsLoaded)
+                return;
+
+            var folder = GetSessionFolderPath(session);
+            if (folder == null || !Directory.Exists(folder))
+                return;
+
+            await LoadCallstacksAsync(session, folder);
+            await LoadStateAsync(session, folder);
+
+            session.IsLoaded = true;
+        }
+
+        private async Task LoadCallstacksAsync(CallstackSession session, string folder)
+        {
+            var filePath = Path.Combine(folder, Constants.CallstacksFileName);
+            if (!File.Exists(filePath))
+                return;
+
+            try
             {
-                Logger.Log("LoadData: File not found, using empty data");
-                _sessionData = new SolutionSessionData();
+                var json = await Task.Run(() => File.ReadAllText(filePath));
+                var callstacks = JsonConvert.DeserializeObject<List<CallstackData>>(json);
+                session.Callstacks = callstacks ?? new List<CallstackData>();
             }
+            catch (Exception ex)
+            {
+                Logger.Error($"LoadSessionDetails: Failed to load callstacks from {filePath}", ex);
+                session.Callstacks = new List<CallstackData>();
+            }
+        }
+
+        private async Task LoadStateAsync(CallstackSession session, string folder)
+        {
+            var filePath = Path.Combine(folder, Constants.StateFileName);
+            if (!File.Exists(filePath))
+                return;
+
+            try
+            {
+                var json = await Task.Run(() => File.ReadAllText(filePath));
+                var state = JsonConvert.DeserializeObject<SessionState>(json);
+                if (state != null)
+                {
+                    session.NodeColors = state.NodeColors ?? new Dictionary<int, string>();
+                    session.CollapsedNodes = state.CollapsedNodes ?? new Dictionary<int, bool>();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LoadSessionDetails: Failed to load state from {filePath}", ex);
+            }
+        }
+
+        public async Task SaveSessionMetadataAsync(CallstackSession session)
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (session == null)
+                return;
+
+            var folder = GetOrCreateSessionFolder(session);
+            if (folder == null)
+                return;
+
+            var filePath = Path.Combine(folder, Constants.SessionFileName);
+            var metadata = new CallstackSession(session.Name)
+            {
+                Id = session.Id,
+                CreatedTime = session.CreatedTime,
+                FolderName = session.FolderName
+            };
+
+            await WriteJsonAsync(filePath, metadata);
+            Logger.Log($"SaveSessionMetadata: Saved {filePath}");
+        }
+
+        public async Task SaveCallstacksAsync(CallstackSession session)
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (session == null)
+                return;
+
+            var folder = GetOrCreateSessionFolder(session);
+            if (folder == null)
+                return;
+
+            var filePath = Path.Combine(folder, Constants.CallstacksFileName);
+            await WriteJsonAsync(filePath, session.Callstacks);
+            Logger.Log($"SaveCallstacks: Saved {filePath}");
+        }
+
+        public async Task SaveStateAsync(CallstackSession session)
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (session == null)
+                return;
+
+            var folder = GetOrCreateSessionFolder(session);
+            if (folder == null)
+                return;
+
+            var filePath = Path.Combine(folder, Constants.StateFileName);
+            var state = new SessionState
+            {
+                NodeColors = session.NodeColors ?? new Dictionary<int, string>(),
+                CollapsedNodes = session.CollapsedNodes ?? new Dictionary<int, bool>()
+            };
+
+            await WriteJsonAsync(filePath, state);
+            Logger.Log($"SaveState: Saved {filePath}");
+        }
+
+        private async Task WriteJsonAsync(string filePath, object data)
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(filePath);
+                if (!Directory.Exists(directory))
+                    Directory.CreateDirectory(directory);
+
+                var json = await Task.Run(() => JsonConvert.SerializeObject(data, Formatting.Indented));
+                File.WriteAllText(filePath, json);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"WriteJson: Failed to write {filePath}", ex);
+            }
+        }
+
+        private string GetOrCreateSessionFolder(CallstackSession session)
+        {
+            if (session == null)
+                return null;
+
+            if (string.IsNullOrEmpty(session.FolderName))
+                session.FolderName = GenerateSessionFolderName();
+
+            var folder = GetSessionFolderPath(session);
+            if (folder == null)
+                return null;
+
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+
+            return folder;
+        }
+
+        private string GetSessionFolderPath(CallstackSession session)
+        {
+            if (_dataDirectory == null || session?.FolderName == null)
+                return null;
+
+            return Path.Combine(_dataDirectory, session.FolderName);
+        }
+
+        private string GenerateSessionFolderName()
+        {
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HHmm");
+            var hash = GenerateRandomHash(3);
+            var folderName = $"{timestamp}-{hash}";
+
+            if (_dataDirectory != null && Directory.Exists(_dataDirectory))
+            {
+                int suffix = 1;
+                var candidate = folderName;
+                while (Directory.Exists(Path.Combine(_dataDirectory, candidate)))
+                {
+                    var newHash = GenerateRandomHash(3);
+                    candidate = $"{timestamp}-{newHash}";
+                    suffix++;
+                    if (suffix > 100)
+                    {
+                        candidate = $"{timestamp}-{hash}-{Guid.NewGuid().ToString("N").Substring(0, 4)}";
+                        break;
+                    }
+                }
+                folderName = candidate;
+            }
+
+            return folderName;
+        }
+
+        private string GenerateRandomHash(int length)
+        {
+            const string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+            var sb = new StringBuilder(length);
+            lock (_random)
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    sb.Append(chars[_random.Next(chars.Length)]);
+                }
+            }
+            return sb.ToString();
         }
 
         public async Task SaveDataAsync()
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await SwitchToMainThreadIfNeededAsync();
 
-            if (_dataFilePath == null)
+            if (_dataDirectory == null)
             {
-                _dataFilePath = GetDataFilePath();
-                if (_dataFilePath == null)
+                _dataDirectory = GetDataDirectory();
+                if (_dataDirectory == null)
                 {
                     Logger.Log("SaveData: No solution open, skipping");
                     return;
                 }
             }
 
-            try
+            foreach (var session in _sessionData.Sessions)
             {
-                var directory = Path.GetDirectoryName(_dataFilePath);
-                if (!Directory.Exists(directory))
+                await SaveSessionMetadataAsync(session);
+                if (session.IsLoaded)
                 {
-                    Directory.CreateDirectory(directory);
+                    await SaveCallstacksAsync(session);
+                    await SaveStateAsync(session);
                 }
-
-                var json = JsonConvert.SerializeObject(_sessionData, Formatting.Indented);
-                File.WriteAllText(_dataFilePath, json);
-                Logger.Log($"SaveData: Saved {_sessionData.Sessions.Count} sessions to {_dataFilePath}");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("SaveData: Failed to write", ex);
             }
         }
 
         public async Task<CallstackData> CaptureCurrentCallstackAsync()
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            await SwitchToMainThreadIfNeededAsync();
 
             if (_dte?.Debugger == null || _dte.Debugger.CurrentMode != dbgDebugMode.dbgBreakMode)
                 return null;
@@ -159,6 +385,7 @@ namespace MegaCallstack.Services
                     int lineNumber = 0;
                     string language = "";
                     string module = "";
+                    string lineContent = "";
 
                     if (vsFrame2 != null)
                     {
@@ -173,8 +400,16 @@ namespace MegaCallstack.Services
                         try { module = vsFrame.Module ?? ""; } catch { }
                     }
 
-                    Logger.Log($"Capture: Frame {i}: Func={functionName}, File={fileName}, Line={lineNumber}, Lang={language}, Module={module}");
-                    rawFrames.Add(new CallstackFrame(functionName, fileName, lineNumber, language, module));
+                    if (!string.IsNullOrEmpty(fileName) && lineNumber > 0)
+                    {
+                        lineContent = ReadSourceLine(fileName, lineNumber);
+                    }
+
+                    Logger.Log($"Capture: Frame {i}: Func={functionName}, File={fileName}, Line={lineNumber}, Lang={language}, Module={module}, Source={lineContent}");
+                    rawFrames.Add(new CallstackFrame(functionName, fileName, lineNumber, language, module)
+                    {
+                        LineContent = lineContent
+                    });
                 }
                 catch
                 {
@@ -185,9 +420,8 @@ namespace MegaCallstack.Services
             if (rawFrames.Count == 0)
                 return null;
 
-            rawFrames.Reverse();
-
             rawFrames = TrimToUserCode(rawFrames);
+            rawFrames.Reverse();
 
             var frames = new List<CallstackFrame>();
             int currentHash = 0;
@@ -210,8 +444,6 @@ namespace MegaCallstack.Services
             var normalizedDir = Path.GetFullPath(solutionDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                                + Path.DirectorySeparatorChar;
 
-            // After Reverse(), frames are ordered: [leaf, ..., root]
-            // Scan from ROOT (end of list) backward to find the first user code frame
             int firstUserCodeIndex = -1;
             for (int i = frames.Count - 1; i >= 0; i--)
             {
@@ -242,6 +474,25 @@ namespace MegaCallstack.Services
             return frames;
         }
 
+        private static string ReadSourceLine(string fileName, int lineNumber)
+        {
+            try
+            {
+                if (!File.Exists(fileName))
+                    return string.Empty;
+
+                var lines = File.ReadAllLines(fileName);
+                if (lineNumber > 0 && lineNumber <= lines.Length)
+                {
+                    return lines[lineNumber - 1]?.Trim() ?? string.Empty;
+                }
+            }
+            catch
+            {
+            }
+            return string.Empty;
+        }
+
         public void AddOrUpdateCallstack(CallstackSession session, CallstackData callstack)
         {
             var existing = session.Callstacks.FirstOrDefault(c => c.LeafHashCode == callstack.LeafHashCode);
@@ -258,17 +509,40 @@ namespace MegaCallstack.Services
 
         public CallstackSession CreateSession(string name)
         {
-            var session = new CallstackSession(name);
+            var session = new CallstackSession(name)
+            {
+                FolderName = GenerateSessionFolderName()
+            };
             _sessionData.Sessions.Add(session);
             return session;
         }
 
+        public void DeleteSession(CallstackSession session)
+        {
+            if (session == null)
+                return;
+
+            _sessionData.Sessions.Remove(session);
+
+            var folder = GetSessionFolderPath(session);
+            if (folder != null && Directory.Exists(folder))
+            {
+                try
+                {
+                    Directory.Delete(folder, true);
+                    Logger.Log($"DeleteSession: Deleted folder {folder}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"DeleteSession: Failed to delete folder {folder}", ex);
+                }
+            }
+        }
+
         public CallstackSession GetActiveSession()
         {
-            if (_sessionData.ActiveSessionId == null && _sessionData.Sessions.Count > 0)
-            {
-                _sessionData.ActiveSessionId = _sessionData.Sessions[0].Id;
-            }
+            if (_sessionData.ActiveSessionId == null)
+                return null;
 
             return _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.ActiveSessionId);
         }
@@ -285,19 +559,21 @@ namespace MegaCallstack.Services
             if (session == null)
                 return nodes;
 
+            int mergeId = 1;
             foreach (var callstack in session.Callstacks)
             {
-                var rootNode = BuildTreeFromCallstack(callstack, session);
+                var rootNode = BuildTreeFromCallstack(callstack, session, ref mergeId);
                 if (rootNode != null)
                 {
-                    nodes.Add(rootNode);
+                    MergeTree(nodes, rootNode);
                 }
             }
 
+            SortTree(nodes);
             return nodes;
         }
 
-        private TreeViewNode BuildTreeFromCallstack(CallstackData callstack, CallstackSession session)
+        private TreeViewNode BuildTreeFromCallstack(CallstackData callstack, CallstackSession session, ref int mergeId)
         {
             if (callstack.Frames.Count == 0)
                 return null;
@@ -333,19 +609,86 @@ namespace MegaCallstack.Services
                 currentNode = node;
             }
 
+            var lastFrame = callstack.Frames[callstack.Frames.Count - 1];
+            var leafNode = CreateLeafNode(lastFrame, ref mergeId);
+            currentNode.Children.Add(leafNode);
+
             return rootNode;
+        }
+
+        private TreeViewNode CreateLeafNode(CallstackFrame frame, ref int mergeId)
+        {
+            string displayText;
+            if (frame.LineContent != null)
+            {
+                if (frame.LineContent.Length > Constants.LeafNodeDisplayMaxLength)
+                {
+                    displayText = frame.LineContent.Substring(0, Constants.LeafNodeDisplayMaxLength - 3) + "...";
+                }
+                else
+                {
+                    displayText = frame.LineContent;
+                }
+            }
+            else if (!string.IsNullOrEmpty(frame.FileName))
+            {
+                displayText = $"<{frame.FileName}:{frame.LineNumber}>";
+            }
+            else
+            {
+                displayText = "<current line>";
+            }
+
+            return new TreeViewNode
+            {
+                Frame = frame,
+                DisplayText = displayText,
+                IsLeaf = true,
+                MergeId = mergeId++
+            };
+        }
+
+        private void MergeTree(IList<TreeViewNode> roots, TreeViewNode newNode)
+        {
+            var existing = roots.FirstOrDefault(r => r.Frame?.HashCode == newNode.Frame?.HashCode);
+            if (existing == null)
+            {
+                roots.Add(newNode);
+                return;
+            }
+
+            var children = newNode.Children.ToList();
+            foreach (var child in children)
+            {
+                MergeTree(existing.Children, child);
+            }
+        }
+
+        private void SortTree(IList<TreeViewNode> nodes)
+        {
+            var sorted = nodes.OrderBy(n => n.IsLeaf ? 1 : 0)
+                              .ThenBy(n => n.Frame?.LineNumber ?? int.MaxValue)
+                              .ThenBy(n => n.DisplayText)
+                              .ToList();
+
+            nodes.Clear();
+            foreach (var node in sorted)
+            {
+                nodes.Add(node);
+                SortTree(node.Children);
+            }
         }
 
         private bool GetExpansionState(CallstackSession session, int hashCode, bool defaultValue)
         {
-            if (session.NodeExpansionStates.TryGetValue(hashCode, out var state))
-                return state;
+            if (session.CollapsedNodes.TryGetValue(hashCode, out var state))
+                return !state;
             return defaultValue;
         }
 
         public void SaveExpansionState(CallstackSession session, int hashCode, bool isExpanded)
         {
-            session.NodeExpansionStates[hashCode] = isExpanded;
+            session.CollapsedNodes[hashCode] = !isExpanded;
         }
     }
 }

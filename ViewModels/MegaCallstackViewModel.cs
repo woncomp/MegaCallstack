@@ -25,6 +25,7 @@ namespace MegaCallstack.ViewModels
         private bool _isRenaming;
         private string _renameText;
         private CallstackSession _activeSession;
+        private string _sessionFilterText;
 
         public CallstackManager Manager => _manager;
         public CallstackSession ActiveSession => _activeSession;
@@ -114,7 +115,19 @@ namespace MegaCallstack.ViewModels
             set { _renameText = value; OnPropertyChanged(); }
         }
 
+        public string SessionFilterText
+        {
+            get => _sessionFilterText;
+            set
+            {
+                _sessionFilterText = value;
+                OnPropertyChanged();
+                ApplySessionFilter();
+            }
+        }
+
         public ObservableCollection<CallstackSession> Sessions { get; } = new ObservableCollection<CallstackSession>();
+        public ObservableCollection<CallstackSession> FilteredSessions { get; } = new ObservableCollection<CallstackSession>();
 
         public ICommand CaptureCommand { get; }
         public ICommand SearchCommand { get; }
@@ -161,6 +174,21 @@ namespace MegaCallstack.ViewModels
             foreach (var session in _manager.SessionData.Sessions)
             {
                 Sessions.Add(session);
+            }
+            ApplySessionFilter();
+        }
+
+        private void ApplySessionFilter()
+        {
+            FilteredSessions.Clear();
+            var filter = _sessionFilterText?.ToLowerInvariant() ?? string.Empty;
+            foreach (var session in Sessions)
+            {
+                if (string.IsNullOrEmpty(filter) ||
+                    (session.Name != null && session.Name.ToLowerInvariant().Contains(filter)))
+                {
+                    FilteredSessions.Add(session);
+                }
             }
         }
 
