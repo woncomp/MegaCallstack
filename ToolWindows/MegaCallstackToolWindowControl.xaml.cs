@@ -134,6 +134,14 @@ namespace MegaCallstack.ToolWindows
                 _viewModel.DeleteSelectedSessionCommand.Execute(null);
             }
         }
+
+        private void SessionViewContent_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (_viewModel?.SelectedSession != null)
+            {
+                _viewModel.ActivateSessionCommand.Execute(_viewModel.SelectedSession);
+            }
+        }
     }
 
     public class InverseBoolToVisibilityConverter : IValueConverter
