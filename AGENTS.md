@@ -2,6 +2,11 @@
 
 This guide is written for agents (and developers) who need to ramp up on the MegaCallstack Visual Studio extension quickly. It explains how the project is organized, how to navigate the codebase, and where to look when making changes.
 
+## ⚠️ HIGH PRIORITY RULES
+
+- **All code and documentation must be written in English.** This includes code comments, commit messages, doc files, and any text the agent produces.
+- **Do not commit unless the user explicitly asks.** Even when the user explicitly requests a commit, that request applies only to the current conversation turn. Never treat commit as a default action after making changes.
+
 ## 1. What This Extension Does
 
 MegaCallstack is a Visual Studio tool window that captures debugger callstacks while debugging is paused at a breakpoint. It merges callstacks into a tree view, lets users highlight nodes with colors, search, navigate to source code, and manage multiple named sessions per solution.
@@ -129,3 +134,8 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
 - Original implementation plan: `mega_callstack_plan.md` (slightly outdated after the folder-per-session refactor).
 - VS command/table definitions: `MegaCallstack.vsct`.
 - VSIX metadata: `source.extension.vsixmanifest`.
+
+
+## 10. Versioning
+
+- **Each time you make any change, bump the lowest version segment by 1.** Update both `Properties/AssemblyInfo.cs` (`AssemblyVersion` and `AssemblyFileVersion`) and `source.extension.vsixmanifest` (the `Version` attribute in the `Identity` element). Keep them in sync.
