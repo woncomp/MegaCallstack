@@ -9,6 +9,7 @@
               xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
               xmlns:vsimg="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.Imaging"
               xmlns:vscat="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.ImageCatalog"
+              xmlns:vsplat="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Imaging"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
@@ -211,7 +212,14 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}">
+    <!-- Set ImageThemingUtilities.ImageBackgroundColor on the root so every
+         CrispImage descendant (toolbar buttons, tree expand/collapse/leaf
+         icons) knows the background color it is rendered on. CrispImage uses
+         this to decide whether to invert/recolor its moniker; without it the
+         auto-detection that walks the visual tree can fail (notably in the
+         Blue theme), producing mis-colored icons. -->
+    <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
+          vsplat:ImageThemingUtilities.ImageBackgroundColor="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundColorKey}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
