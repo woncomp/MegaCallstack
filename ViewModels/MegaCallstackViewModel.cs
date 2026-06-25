@@ -17,6 +17,7 @@ namespace MegaCallstack.ViewModels
         private readonly CallstackManager _manager;
 
         private ObservableCollection<TreeViewNode> _treeNodes = new ObservableCollection<TreeViewNode>();
+        private ObservableCollection<TreeViewNode> _displayTreeNodes = new ObservableCollection<TreeViewNode>();
         private TreeViewNode _selectedNode;
         private string _searchText;
         private List<TreeViewNode> _searchMatches = new List<TreeViewNode>();
@@ -49,6 +50,7 @@ namespace MegaCallstack.ViewModels
             JumpToFrameCommand = new RelayCommand(ExecuteJumpToFrame, CanJumpToFrame);
             SetColorCommand = new RelayCommand<string>(ExecuteSetColor);
             ClearColorCommand = new RelayCommand(ExecuteClearColor);
+            ToggleAncestorsCommand = new RelayCommand(ExecuteToggleAncestors, CanToggleAncestors);
             SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
             SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
             CreateSessionCommand = new RelayCommand(ExecuteCreateSession);
@@ -64,6 +66,22 @@ namespace MegaCallstack.ViewModels
         {
             get => _treeNodes;
             set { _treeNodes = value; OnPropertyChanged(); }
+        }
+
+        public ObservableCollection<TreeViewNode> DisplayTreeNodes
+        {
+            get => _displayTreeNodes;
+            set { _displayTreeNodes = value; OnPropertyChanged(); }
+        }
+
+        public string AncestorsMenuHeader
+        {
+            get
+            {
+                if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
+                    return "Show Ancestors";
+                return "Hide Ancestors";
+            }
         }
 
         public TreeViewNode SelectedNode
@@ -83,6 +101,7 @@ namespace MegaCallstack.ViewModels
 
                     UpdatePathBolding();
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(AncestorsMenuHeader));
                 }
             }
         }
@@ -150,6 +169,7 @@ namespace MegaCallstack.ViewModels
         public ICommand JumpToFrameCommand { get; }
         public ICommand SetColorCommand { get; }
         public ICommand ClearColorCommand { get; }
+        public ICommand ToggleAncestorsCommand { get; }
         public ICommand SwitchToSessionViewCommand { get; }
         public ICommand SwitchToTreeViewCommand { get; }
         public ICommand CreateSessionCommand { get; }
@@ -173,6 +193,10 @@ namespace MegaCallstack.ViewModels
         {
             var nodes = _manager.BuildTreeNodes(_activeSession);
             TreeNodes = new ObservableCollection<TreeViewNode>(nodes);
+
+            var displayNodes = _manager.BuildDisplayTreeNodes(_activeSession, nodes);
+            DisplayTreeNodes = new ObservableCollection<TreeViewNode>(displayNodes);
+
             TreeUpdated?.Invoke();
         }
 
@@ -374,6 +398,35 @@ namespace MegaCallstack.ViewModels
             }
 
             SelectedNode.ClearColorAndPropagate();
+        }
+
+        private bool CanToggleAncestors()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return false;
+
+            if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
+                return true;
+
+            return _manager.CanHideAncestors(SelectedNode);
+        }
+
+        private async void ExecuteToggleAncestors()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return;
+
+            if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
+            {
+                _manager.ClearHiddenAncestorsForPath(_activeSession, SelectedNode);
+            }
+            else
+            {
+                _manager.SetHiddenAncestors(_activeSession, SelectedNode);
+            }
+
+            await _manager.SaveStateAsync(_activeSession);
+            RefreshTreeNodes();
         }
 
         private async void SaveStateAsync()

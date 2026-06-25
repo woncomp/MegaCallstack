@@ -122,7 +122,7 @@ namespace MegaCallstack.ToolWindows
 
         private void OnTreeUpdated()
         {
-            MainTreeView.ItemsSource = _viewModel?.TreeNodes;
+            MainTreeView.ItemsSource = _viewModel?.DisplayTreeNodes;
         }
 
         private void TreeView_Selected(object sender, RoutedEventArgs e)
@@ -131,6 +131,20 @@ namespace MegaCallstack.ToolWindows
             {
                 if (_viewModel != null)
                     _viewModel.SelectedNode = node;
+            }
+        }
+
+        private void TreeViewItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.OriginalSource is FrameworkElement fe && fe.DataContext is TreeViewNode node)
+            {
+                if (_viewModel != null)
+                    _viewModel.SelectedNode = node;
+            }
+            else if (sender is TreeViewItem tvi && tvi.DataContext is TreeViewNode node2)
+            {
+                if (_viewModel != null)
+                    _viewModel.SelectedNode = node2;
             }
         }
 

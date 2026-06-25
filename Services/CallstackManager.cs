@@ -406,6 +406,7 @@ namespace MegaCallstack.Services
                 {
                     session.NodeColors = state.NodeColors ?? new Dictionary<int, string>();
                     session.CollapsedNodes = state.CollapsedNodes ?? new Dictionary<int, bool>();
+                    session.HiddenAncestorNodes = state.HiddenAncestorNodes ?? new Dictionary<int, bool>();
                 }
             }
             catch (Exception ex)
@@ -468,7 +469,8 @@ namespace MegaCallstack.Services
             var state = new SessionState
             {
                 NodeColors = session.NodeColors ?? new Dictionary<int, string>(),
-                CollapsedNodes = session.CollapsedNodes ?? new Dictionary<int, bool>()
+                CollapsedNodes = session.CollapsedNodes ?? new Dictionary<int, bool>(),
+                HiddenAncestorNodes = session.HiddenAncestorNodes ?? new Dictionary<int, bool>()
             };
 
             await WriteJsonAsync(filePath, state);
@@ -916,6 +918,109 @@ namespace MegaCallstack.Services
         public void SaveExpansionState(CallstackSession session, int hashCode, bool isExpanded)
         {
             session.CollapsedNodes[hashCode] = !isExpanded;
+        }
+
+        public bool CanHideAncestors(TreeViewNode node)
+        {
+            if (node == null)
+                return false;
+
+            foreach (var ancestor in node.GetAncestors())
+            {
+                if (ancestor.Children.Count > 1)
+                    return false;
+            }
+
+            return node.Parent != null;
+        }
+
+        public bool IsDisplayRoot(TreeViewNode node, CallstackSession session)
+        {
+            if (node == null || session == null)
+                return false;
+
+            foreach (var ancestor in node.GetAncestors())
+            {
+                if (session.HiddenAncestorNodes.ContainsKey(ancestor.Frame?.HashCode ?? 0))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public void SetHiddenAncestors(CallstackSession session, TreeViewNode node)
+        {
+            if (session == null || node == null)
+                return;
+
+            ClearHiddenAncestorsForPath(session, node);
+
+            foreach (var ancestor in node.GetAncestors())
+            {
+                var hashCode = ancestor.Frame?.HashCode ?? 0;
+                if (hashCode != 0)
+                    session.HiddenAncestorNodes[hashCode] = true;
+            }
+        }
+
+        public void ClearHiddenAncestorsForPath(CallstackSession session, TreeViewNode node)
+        {
+            if (session == null || node == null)
+                return;
+
+            foreach (var ancestor in node.GetAncestors())
+            {
+                var hashCode = ancestor.Frame?.HashCode ?? 0;
+                if (hashCode != 0)
+                    session.HiddenAncestorNodes.Remove(hashCode);
+            }
+        }
+
+        public List<TreeViewNode> BuildDisplayTreeNodes(CallstackSession session, List<TreeViewNode> fullTree)
+        {
+            var displayRoots = new List<TreeViewNode>();
+            if (session == null || fullTree == null)
+                return displayRoots;
+
+            foreach (var root in fullTree)
+            {
+                displayRoots.AddRange(GetVisibleRoots(session, root));
+            }
+
+            return displayRoots;
+        }
+
+        private IEnumerable<TreeViewNode> GetVisibleRoots(CallstackSession session, TreeViewNode root)
+        {
+            var current = root;
+            while (current != null)
+            {
+                var hashCode = current.Frame?.HashCode ?? 0;
+                bool wantsHidden = hashCode != 0 && session.HiddenAncestorNodes.ContainsKey(hashCode);
+                bool isBranched = current.Children.Count > 1;
+
+                if (wantsHidden && !isBranched)
+                {
+                    var next = current.Children.FirstOrDefault(c => !c.IsLeaf);
+                    if (next == null)
+                    {
+                        yield return current;
+                        yield break;
+                    }
+
+                    foreach (var child in current.Children)
+                    {
+                        foreach (var visibleRoot in GetVisibleRoots(session, child))
+                        {
+                            yield return visibleRoot;
+                        }
+                    }
+                    yield break;
+                }
+
+                yield return current;
+                yield break;
+            }
         }
     }
 }

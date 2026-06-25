@@ -263,6 +263,188 @@ namespace MegaCallstack.Tests
             Assert.AreNotEqual(0, leafNode.MergeId);
         }
 
+        [TestMethod]
+        public void CanHideAncestors_NodeWithAllUnbranchedAncestors_ReturnsTrue()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var nodes = manager.BuildTreeNodes(session);
+            var doWorkNode = nodes[0].Children[0].Children[0];
+
+            Assert.IsTrue(manager.CanHideAncestors(doWorkNode));
+        }
+
+        [TestMethod]
+        public void CanHideAncestors_RootNode_ReturnsFalse()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var nodes = manager.BuildTreeNodes(session);
+
+            Assert.IsFalse(manager.CanHideAncestors(nodes[0]));
+        }
+
+        [TestMethod]
+        public void CanHideAncestors_NodeWithBranchedAncestor_ReturnsFalse()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack1 = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            var callstack2 = CreateTestCallstack("main.cs", "main", "Execute", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack1);
+            manager.AddOrUpdateCallstack(session, callstack2);
+
+            var nodes = manager.BuildTreeNodes(session);
+            var doWorkNode = nodes[0].Children[0].Children[0];
+
+            Assert.IsFalse(manager.CanHideAncestors(doWorkNode));
+        }
+
+        [TestMethod]
+        public void SetHiddenAncestors_MarksAncestorsAsHidden()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var nodes = manager.BuildTreeNodes(session);
+            var doWorkNode = nodes[0].Children[0].Children[0];
+
+            manager.SetHiddenAncestors(session, doWorkNode);
+
+            Assert.IsTrue(session.HiddenAncestorNodes.ContainsKey(nodes[0].Frame.HashCode));
+            Assert.IsTrue(session.HiddenAncestorNodes.ContainsKey(nodes[0].Children[0].Frame.HashCode));
+            Assert.IsFalse(session.HiddenAncestorNodes.ContainsKey(doWorkNode.Frame.HashCode));
+        }
+
+        [TestMethod]
+        public void BuildDisplayTreeNodes_HidesUnbranchedHiddenAncestors()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            var doWorkNode = fullTree[0].Children[0].Children[0];
+            manager.SetHiddenAncestors(session, doWorkNode);
+
+            var displayTree = manager.BuildDisplayTreeNodes(session, fullTree);
+
+            Assert.AreEqual(1, displayTree.Count);
+            Assert.AreEqual("DoWork", displayTree[0].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildDisplayTreeNodes_DoesNotHideBranchedNodesEvenWhenMarked()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack1 = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            var callstack2 = CreateTestCallstack("main.cs", "main", "Execute", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack1);
+            manager.AddOrUpdateCallstack(session, callstack2);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            session.HiddenAncestorNodes[fullTree[0].Frame.HashCode] = true;
+
+            var displayTree = manager.BuildDisplayTreeNodes(session, fullTree);
+
+            Assert.AreEqual(1, displayTree.Count);
+            Assert.AreEqual("main", displayTree[0].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildDisplayTreeNodes_ShowAncestorsRestoresRoot()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            var doWorkNode = fullTree[0].Children[0].Children[0];
+            manager.SetHiddenAncestors(session, doWorkNode);
+
+            var displayTree = manager.BuildDisplayTreeNodes(session, fullTree);
+            Assert.AreEqual("DoWork", displayTree[0].DisplayText);
+            Assert.IsTrue(manager.IsDisplayRoot(displayTree[0], session));
+
+            manager.ClearHiddenAncestorsForPath(session, displayTree[0]);
+            var restoredTree = manager.BuildDisplayTreeNodes(session, fullTree);
+
+            Assert.AreEqual(1, restoredTree.Count);
+            Assert.AreEqual("main", restoredTree[0].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildDisplayTreeNodes_HidingInOneRootDoesNotAffectOtherRoot()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack1 = CreateTestCallstack("file1.cs", "RootA", "Child1", "Leaf1");
+            var callstack2 = CreateTestCallstack("file2.cs", "RootB", "Child2", "Leaf2");
+            manager.AddOrUpdateCallstack(session, callstack1);
+            manager.AddOrUpdateCallstack(session, callstack2);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            var leaf1Node = fullTree[0].Children[0].Children[0];
+            manager.SetHiddenAncestors(session, leaf1Node);
+
+            var displayTree = manager.BuildDisplayTreeNodes(session, fullTree);
+
+            Assert.AreEqual(2, displayTree.Count);
+            Assert.AreEqual("Leaf1", displayTree[0].DisplayText);
+            Assert.AreEqual("RootB", displayTree[1].DisplayText);
+        }
+
+        [TestMethod]
+        public void SetHiddenAncestors_ClearsPreviousHiddenAncestorsForSamePath()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork", "Inner");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            var innerNode = fullTree[0].Children[0].Children[0].Children[0];
+            manager.SetHiddenAncestors(session, innerNode);
+
+            var doWorkNode = fullTree[0].Children[0].Children[0];
+            manager.SetHiddenAncestors(session, doWorkNode);
+
+            Assert.IsFalse(session.HiddenAncestorNodes.ContainsKey(innerNode.Frame.HashCode));
+            Assert.IsTrue(session.HiddenAncestorNodes.ContainsKey(doWorkNode.Frame.HashCode));
+            Assert.IsTrue(session.HiddenAncestorNodes.ContainsKey(fullTree[0].Frame.HashCode));
+        }
+
+        [TestMethod]
+        public void BuildDisplayTreeNodes_LeafStopsAtVisibleAncestor()
+        {
+            var manager = CreateManager();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run");
+            manager.AddOrUpdateCallstack(session, callstack);
+
+            var fullTree = manager.BuildTreeNodes(session);
+            var runNode = fullTree[0].Children[0];
+            manager.SetHiddenAncestors(session, runNode);
+
+            var displayTree = manager.BuildDisplayTreeNodes(session, fullTree);
+
+            Assert.AreEqual(1, displayTree.Count);
+            Assert.AreEqual("Run", displayTree[0].DisplayText);
+            Assert.AreEqual(1, displayTree[0].Children.Count);
+            Assert.IsTrue(displayTree[0].Children[0].IsLeaf);
+        }
+
         private CallstackManager CreateManager()
         {
             return new CallstackManager(null);
