@@ -288,14 +288,13 @@
         <!-- Middle content -->
         <Grid Grid.Row="1">
             <!-- Tree View content -->
-            <ScrollViewer x:Name="TreeViewContent"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
                 <controls:CallstackTreeView x:Name="MainTreeView"
                           Background="Transparent"
                           BorderThickness="0"
                           ItemsSource="{Binding DisplayTreeNodes}"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}"
                           TreeViewItem.Selected="TreeView_Selected"
                           TreeViewItem.PreviewMouseRightButtonDown="TreeViewItem_PreviewMouseRightButtonDown"
                           TreeViewItem.Collapsed="TreeViewItem_ExpandedCollapsed"
@@ -313,7 +312,6 @@
                         </HierarchicalDataTemplate>
                     </controls:CallstackTreeView.ItemTemplate>
                 </controls:CallstackTreeView>
-            </ScrollViewer>
 
             <!-- Session View content -->
             <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
