@@ -14,6 +14,11 @@ namespace MegaCallstack.ToolWindows
     public partial class MegaCallstackToolWindowControl : UserControl
     {
         private MegaCallstackViewModel _viewModel;
+        private CallstackManager _manager;
+        // EnvDTE event objects are kept alive by this reference; without it the
+        // GC can collect them and the Opened event stops firing.
+        private EnvDTE.Events _dteEvents;
+        private EnvDTE.SolutionEvents _solutionEvents;
 
         public MegaCallstackToolWindowControl()
         {
@@ -29,15 +34,54 @@ namespace MegaCallstack.ToolWindows
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
-            var manager = new CallstackManager(dte);
-            await manager.LoadDataAsync();
+            _manager = new CallstackManager(dte);
+            await _manager.LoadDataAsync();
 
-            _viewModel = new MegaCallstackViewModel(manager);
+            // Compute user-code roots before any capture so trimming has an
+            // accurate picture of where the solution's code actually lives
+            // (which may be outside the .sln directory).
+            await _manager.ComputeSolutionRootsAsync();
+            HookSolutionEvents(dte);
+
+            _viewModel = new MegaCallstackViewModel(_manager);
             _viewModel.NavigateToFile += OnNavigateToFile;
             _viewModel.TreeUpdated += OnTreeUpdated;
             DataContext = _viewModel;
 
             _viewModel.LoadData();
+        }
+
+        /// <summary>
+        /// Subscribes to solution-open events so the user-code roots are
+        /// recomputed when the user switches solutions after the window is
+        /// already open. Holds the events object references to prevent GC.
+        /// </summary>
+        private void HookSolutionEvents(EnvDTE.DTE dte)
+        {
+            if (dte == null)
+                return;
+
+            try
+            {
+                _dteEvents = dte.Events;
+                _solutionEvents = _dteEvents.SolutionEvents;
+                _solutionEvents.Opened += OnSolutionOpened;
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnSolutionOpened()
+        {
+            ThreadHelper.JoinableTaskFactory.Run(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                if (_manager != null)
+                {
+                    await _manager.ComputeSolutionRootsAsync();
+                }
+            });
         }
 
         private void OnNavigateToFile(string fileName, int lineNumber)

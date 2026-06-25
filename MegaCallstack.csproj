@@ -57,6 +57,7 @@
     <Compile Include="Models\SolutionSessionData.cs" />
     <Compile Include="Models\TreeViewNode.cs" />
     <Compile Include="Services\CallstackManager.cs" />
+    <Compile Include="Services\SolutionRootDetector.cs" />
     <Compile Include="ViewModels\MegaCallstackViewModel.cs" />
     <Compile Include="Controls\HighlightTextBlock.cs" />
     <Compile Include="Controls\CallstackTreeView.cs" />
