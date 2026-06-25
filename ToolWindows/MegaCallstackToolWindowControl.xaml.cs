@@ -34,6 +34,10 @@ namespace MegaCallstack.ToolWindows
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
+            string solutionName = "none";
+            try { solutionName = dte?.Solution?.FullName ?? "none"; } catch { }
+            Logger.Log($"ToolWindow: Initializing, solution={solutionName}");
+
             _manager = new CallstackManager(dte);
             await _manager.LoadDataAsync();
 
@@ -42,6 +46,7 @@ namespace MegaCallstack.ToolWindows
             // (which may be outside the .sln directory).
             await _manager.ComputeSolutionRootsAsync();
             HookSolutionEvents(dte);
+            Logger.Log("ToolWindow: LoadData and root detection complete");
 
             _viewModel = new MegaCallstackViewModel(_manager);
             _viewModel.NavigateToFile += OnNavigateToFile;
@@ -59,21 +64,27 @@ namespace MegaCallstack.ToolWindows
         private void HookSolutionEvents(EnvDTE.DTE dte)
         {
             if (dte == null)
+            {
+                Logger.Log("ToolWindow: No DTE, skipping solution-event subscription");
                 return;
+            }
 
             try
             {
                 _dteEvents = dte.Events;
                 _solutionEvents = _dteEvents.SolutionEvents;
                 _solutionEvents.Opened += OnSolutionOpened;
+                Logger.Log("ToolWindow: Subscribed to solution-open events");
             }
-            catch
+            catch (Exception ex)
             {
+                Logger.Error("ToolWindow: Failed to subscribe to solution events", ex);
             }
         }
 
         private void OnSolutionOpened()
         {
+            Logger.Log("ToolWindow: Solution reopened, recomputing user-code roots");
             ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

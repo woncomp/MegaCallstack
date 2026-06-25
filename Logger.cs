@@ -23,6 +23,12 @@ namespace MegaCallstack
 
         public static void Log(string message)
         {
+            // Fast path: if the output pane was never created (e.g. before the
+            // package initializes, or in unit tests with no VS), skip the
+            // thread switch entirely rather than queuing work that can't write.
+            if (_pane == null)
+                return;
+
             try
             {
                 ThreadHelper.JoinableTaskFactory.Run(async () =>
