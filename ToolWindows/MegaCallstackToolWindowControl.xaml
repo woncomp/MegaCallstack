@@ -169,11 +169,19 @@
                                             Visibility="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                         <ControlTemplate.Triggers>
+                            <!-- Hover off Bd.IsMouseOver, NOT the TreeViewItem's
+                                 IsMouseOver. The item's IsMouseOver is True for the
+                                 item OR any descendant, so it would cascade up and
+                                 highlight every ancestor. Bd only wraps this item's
+                                 own header row (not the ItemsHost/children), so its
+                                 IsMouseOver is True only when the mouse is directly
+                                 over this row. Selection is evaluated after hover so
+                                 a selected item keeps its selection color on hover. -->
+                            <Trigger SourceName="Bd" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ColorLayer" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
+                            </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ColorLayer" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ColorLayer" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="HasItems" Value="True">
                                 <Setter TargetName="Expander" Property="Visibility" Value="Visible"/>
