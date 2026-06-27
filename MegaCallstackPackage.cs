@@ -22,6 +22,8 @@ namespace MegaCallstack
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            Logger.Initialize(this);
+            Logger.Log("Package: Initialized");
             await ShowMegaCallstackWindowCommand.InitializeAsync(this);
         }
     }
