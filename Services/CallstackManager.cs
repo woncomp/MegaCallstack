@@ -17,6 +17,7 @@ namespace MegaCallstack.Services
         private readonly DTE _dte;
         private SolutionSessionData _sessionData;
         private string _dataDirectory;
+        private List<string> _userCodeRoots;
 
         private static readonly Random _random = new Random();
 
@@ -74,6 +75,230 @@ namespace MegaCallstack.Services
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             }
+        }
+
+        /// <summary>
+        /// Solution folder project kind GUID. These are virtual containers in
+        /// the solution, not real projects, so they have no files of their own.
+        /// </summary>
+        private const string SolutionFolderKind = "{66A26720-8FB5-11D2-AA7E-00C04F688DDE}";
+
+        /// <summary>
+        /// Computes the user-code root directories for the currently loaded
+        /// solution by walking its project tree and running the root-detection
+        /// algorithm. The result feeds <see cref="TrimToUserCode"/>. Safe to
+        /// call with no solution (leaves roots unset, trimming falls back).
+        /// </summary>
+        public async Task ComputeSolutionRootsAsync()
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (_dte?.Solution == null || string.IsNullOrEmpty(_dte.Solution.FullName))
+            {
+                Logger.Log("ComputeSolutionRoots: No solution open, skipping");
+                _userCodeRoots = null;
+                return;
+            }
+
+            var files = CollectSolutionFilePaths();
+            Logger.Log($"ComputeSolutionRoots: Collected {files.Count} file paths from solution");
+
+            string[] fileArray = files.ToArray();
+            var roots = await Task.Run(() => SolutionRootDetector.DetectProjectFolders(fileArray, Constants.MaxUserCodeRoots));
+
+            _userCodeRoots = new List<string>();
+            foreach (var root in roots)
+            {
+                var normalized = NormalizeRoot(root);
+                if (normalized != null && !_userCodeRoots.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                {
+                    _userCodeRoots.Add(normalized);
+                }
+            }
+
+            Logger.Log($"ComputeSolutionRoots: Detected {_userCodeRoots.Count} root(s): {string.Join("; ", _userCodeRoots)}");
+        }
+
+        /// <summary>
+        /// Walks the solution's EnvDTE project tree (on the UI thread) and
+        /// collects source file paths. Solution folders are recursed but
+        /// contribute no files. Capped at <see cref="Constants.MaxSolutionFilesToScan"/>.
+        /// </summary>
+        private List<string> CollectSolutionFilePaths()
+        {
+            var files = new List<string>();
+            try
+            {
+                var projects = _dte?.Solution?.Projects;
+                if (projects == null)
+                    return files;
+
+                foreach (Project project in projects)
+                {
+                    CollectFromProject(project, files);
+                    if (files.Count >= Constants.MaxSolutionFilesToScan)
+                    {
+                        Logger.Log($"CollectSolutionFilePaths: Hit cap of {Constants.MaxSolutionFilesToScan} files, stopping early");
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("CollectSolutionFilePaths: Failed to enumerate solution projects", ex);
+            }
+            return files;
+        }
+
+        private void CollectFromProject(Project project, List<string> files)
+        {
+            if (project == null)
+                return;
+
+            if (files.Count >= Constants.MaxSolutionFilesToScan)
+                return;
+
+            try
+            {
+                // The project file itself (e.g. .csproj) anchors the project
+                // location even if its items fail to enumerate.
+                if (!string.IsNullOrEmpty(project.FullName))
+                {
+                    files.Add(project.FullName);
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                if (project.Kind != null &&
+                    project.Kind.Equals(SolutionFolderKind, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Solution folder: recurse into its project items, which
+                    // may contain nested projects via SubProject.
+                    CollectFromProjectItems(project.ProjectItems, files);
+                    return;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                CollectFromProjectItems(project.ProjectItems, files);
+            }
+            catch
+            {
+            }
+        }
+
+        private void CollectFromProjectItems(ProjectItems items, List<string> files)
+        {
+            if (items == null)
+                return;
+
+            foreach (ProjectItem item in items)
+            {
+                if (files.Count >= Constants.MaxSolutionFilesToScan)
+                    return;
+
+                try
+                {
+                    // FileNames(1) is the 1-based first file of the item.
+                    if (item.FileCount > 0)
+                    {
+                        var name = item.FileNames[1];
+                        if (!string.IsNullOrEmpty(name))
+                            files.Add(name);
+                    }
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    // Nested project (e.g. inside a solution folder).
+                    var subProject = item.SubProject;
+                    if (subProject != null)
+                    {
+                        CollectFromProject(subProject, files);
+                    }
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    // Recurse into folder items.
+                    if (item.ProjectItems != null)
+                    {
+                        CollectFromProjectItems(item.ProjectItems, files);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        /// <summary>
+        /// Normalizes a directory to a canonical absolute path with a trailing
+        /// separator, suitable for prefix matching. Returns null if the path
+        /// cannot be normalized.
+        /// </summary>
+        private static string NormalizeRoot(string dir)
+        {
+            if (string.IsNullOrEmpty(dir))
+                return null;
+
+            try
+            {
+                return Path.GetFullPath(dir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Returns the effective set of user-code root prefixes: the detected
+        /// roots plus the solution directory (which preserves coverage for
+        /// solutions whose code already lives under the .sln). Bare drive
+        /// roots are excluded. Empty when there is no solution.
+        /// </summary>
+        private List<string> GetEffectiveUserCodeRoots()
+        {
+            var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (_userCodeRoots != null)
+            {
+                foreach (var root in _userCodeRoots)
+                {
+                    roots.Add(root);
+                }
+            }
+
+            var solutionDir = GetSolutionDirectory();
+            if (!string.IsNullOrEmpty(solutionDir))
+            {
+                var normalized = NormalizeRoot(solutionDir);
+                // Skip bare drive roots like "C:\" to avoid treating the whole
+                // drive as user code.
+                if (normalized != null && normalized.Length > 3)
+                {
+                    roots.Add(normalized);
+                }
+            }
+
+            return roots.ToList();
         }
 
         public async Task LoadDataAsync()
@@ -437,12 +662,9 @@ namespace MegaCallstack.Services
 
         private List<CallstackFrame> TrimToUserCode(List<CallstackFrame> frames)
         {
-            var solutionDir = GetSolutionDirectory();
-            if (string.IsNullOrEmpty(solutionDir))
+            var roots = GetEffectiveUserCodeRoots();
+            if (roots.Count == 0)
                 return frames;
-
-            var normalizedDir = Path.GetFullPath(solutionDir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                               + Path.DirectorySeparatorChar;
 
             int firstUserCodeIndex = -1;
             for (int i = frames.Count - 1; i >= 0; i--)
@@ -453,11 +675,16 @@ namespace MegaCallstack.Services
                     try
                     {
                         var normalizedFile = Path.GetFullPath(fileName);
-                        if (normalizedFile.StartsWith(normalizedDir, StringComparison.OrdinalIgnoreCase))
+                        foreach (var root in roots)
                         {
-                            firstUserCodeIndex = i;
-                            break;
+                            if (normalizedFile.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                            {
+                                firstUserCodeIndex = i;
+                                break;
+                            }
                         }
+                        if (firstUserCodeIndex >= 0)
+                            break;
                     }
                     catch
                     {
@@ -467,7 +694,7 @@ namespace MegaCallstack.Services
 
             if (firstUserCodeIndex >= 0 && firstUserCodeIndex < frames.Count - 1)
             {
-                Logger.Log($"TrimToUserCode: Keeping frames 0..{firstUserCodeIndex} (trimmed {frames.Count - 1 - firstUserCodeIndex} root frames)");
+                Logger.Log($"TrimToUserCode: Keeping frames 0..{firstUserCodeIndex} (trimmed {frames.Count - 1 - firstUserCodeIndex} root frames) using {roots.Count} user-code root(s)");
                 return frames.GetRange(0, firstUserCodeIndex + 1);
             }
 
