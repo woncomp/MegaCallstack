@@ -62,6 +62,21 @@ namespace MegaCallstack.Controls
             return arrangeBounds;
         }
 
+        // Refresh the rendered segments when the inherited Foreground changes
+        // (e.g. when the VS color theme switches). Without this the inner
+        // TextBlocks keep the stale foreground until Text/HighlightText changes.
+        protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+        {
+            base.OnPropertyChanged(e);
+            if (e.Property == ForegroundProperty ||
+                e.Property == TextProperty ||
+                e.Property == HighlightTextProperty ||
+                e.Property == HighlightBackgroundProperty)
+            {
+                Rebuild();
+            }
+        }
+
         private static void OnTextOrHighlightChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             ((HighlightTextBlock)d).Rebuild();
@@ -70,6 +85,8 @@ namespace MegaCallstack.Controls
         private void Rebuild()
         {
             _panel.Children.Clear();
+
+            var foreground = Foreground;
 
             var text = Text;
             if (string.IsNullOrEmpty(text))
@@ -81,7 +98,7 @@ namespace MegaCallstack.Controls
             var highlight = HighlightText;
             if (string.IsNullOrEmpty(highlight))
             {
-                _panel.Children.Add(new TextBlock { Text = text });
+                _panel.Children.Add(new TextBlock { Text = text, Foreground = foreground });
                 return;
             }
 
@@ -92,6 +109,14 @@ namespace MegaCallstack.Controls
                 if (isHighlighted)
                 {
                     tb.Background = HighlightBackground;
+                    // The highlight background is yellow (#FFFF00); use black
+                    // text so the highlighted span stays readable in both
+                    // light and dark themes regardless of the inherited color.
+                    tb.Foreground = Brushes.Black;
+                }
+                else
+                {
+                    tb.Foreground = foreground;
                 }
                 _panel.Children.Add(tb);
             }

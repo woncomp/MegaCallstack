@@ -14,19 +14,19 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <SolidColorBrush x:Key="ToolWindowBackgroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelColorKey}}"/>
-        <SolidColorBrush x:Key="ToolWindowForegroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelTextColorKey}}"/>
-        <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.ListBoxColorKey}}"/>
-        <SolidColorBrush x:Key="ControlForegroundBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.WindowPanelTextColorKey}}"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="{DynamicResource {x:Static vsui:ThemedDialogColors.GridLineColorKey}}"/>
-
+        <!-- Theme-aware resource keys. We reference the VS EnvironmentColors
+             BrushKeys directly via DynamicResource so the brushes (and the
+             CrispImage icon theming that reads them) follow the active color
+             theme. The previous code wrapped *ColorKey resources in
+             SolidColorBrushes and used ThemedDialogColors, which did not
+             resolve correctly inside a tool window. -->
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
         <local:BoolToBoldConverter x:Key="BoldConverter"/>
 
         <Style x:Key="ToolbarButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="4,2"/>
             <Setter Property="Margin" Value="1"/>
@@ -59,13 +59,13 @@
         </Style>
 
         <Style x:Key="SearchTextBox" TargetType="TextBox">
-            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="4,2"/>
             <Setter Property="Margin" Value="2"/>
-            <Setter Property="CaretBrush" Value="{StaticResource ControlForegroundBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
         </Style>
 
         <Style x:Key="TreeViewItemStyle" TargetType="controls:CallstackTreeViewItem">
@@ -98,22 +98,34 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TreeViewItem">
                         <StackPanel HorizontalAlignment="Stretch">
+                            <!-- Bd carries a SOLID themed background as the base
+                                 layer. CrispImage icons theme themselves by reading
+                                 the nearest solid ancestor background, so the base
+                                 must always be a real (non-transparent) brush. The
+                                 node's highlight color, selection, and hover states
+                                 are drawn on the ColorLayer overlay on top, so they
+                                 never leave the icons on a null/transparent
+                                 background (which would break icon theming). -->
                             <Border x:Name="Bd"
-                                    Background="{Binding DisplayBackground, TargetNullValue={StaticResource ControlBackgroundBrush}}"
-                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
+                                    BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
                                     BorderThickness="0"
                                     Padding="{TemplateBinding Padding}"
                                     HorizontalAlignment="Stretch">
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
+                                    <!-- User-set highlight color (null/transparent
+                                         for uncolored nodes, letting Bd show through). -->
+                                    <Border x:Name="ColorLayer" Background="{Binding DisplayBackground}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Icon column: toggle for parents, code icon for leaves -->
-                                    <Border Grid.Column="0" Width="16" Height="16"
-                                            Background="Transparent">
-                                        <Grid>
+                                        <!-- Icon column: toggle for parents, code icon for leaves.
+                                             No Background is set here on purpose; a transparent
+                                             brush would interfere with CrispImage theming. -->
+                                        <Grid Grid.Column="0" Width="16" Height="16">
                                             <ToggleButton x:Name="Expander"
                                                           ClickMode="Press"
                                                           IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
@@ -142,13 +154,13 @@
                                                               Moniker="{x:Static vscat:KnownMonikers.ThisLine}"
                                                               Width="16" Height="16"/>
                                         </Grid>
-                                    </Border>
 
-                                    <ContentPresenter x:Name="PART_Header"
-                                                      Grid.Column="1"
-                                                      Margin="2,0,0,0"
-                                                      ContentSource="Header"
-                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                                        <ContentPresenter x:Name="PART_Header"
+                                                          Grid.Column="1"
+                                                          Margin="2,0,0,0"
+                                                          ContentSource="Header"
+                                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                                    </Grid>
                                 </Grid>
                             </Border>
                             <ItemsPresenter x:Name="ItemsHost"
@@ -157,7 +169,10 @@
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
+                                <Setter TargetName="ColorLayer" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.SelectedItemActiveBrushKey}}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ColorLayer" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
                             </Trigger>
                             <Trigger Property="HasItems" Value="True">
                                 <Setter TargetName="Expander" Property="Visibility" Value="Visible"/>
@@ -167,11 +182,6 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ListItemMouseOverBrushKey}}"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <Style x:Key="SessionListBoxItemStyle" TargetType="ListBoxItem">
@@ -182,7 +192,7 @@
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Bd"
                                 Background="Transparent"
-                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
                                 BorderThickness="0,0,0,1"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter/>
@@ -201,7 +211,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource ToolWindowBackgroundBrush}">
+    <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -209,7 +219,10 @@
         </Grid.RowDefinitions>
 
         <!-- Top toolbar -->
-        <Border Grid.Row="0" Background="{StaticResource ControlBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0"
+                Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
+                BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+                BorderThickness="0,0,0,1">
             <Grid>
                 <!-- Tree View toolbar -->
                 <Grid x:Name="TreeViewToolbar" Margin="2,1" Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
@@ -274,7 +287,7 @@
                                 <controls:HighlightTextBlock Text="{Binding DisplayText}"
                                                              HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                              HighlightBackground="#FFFFFF00"
-                                                             Foreground="{StaticResource ControlForegroundBrush}"/>
+                                                             Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
                             </StackPanel>
                         </HierarchicalDataTemplate>
                     </controls:CallstackTreeView.ItemTemplate>
@@ -301,9 +314,9 @@
                         <DataTemplate>
                             <StackPanel Margin="4">
                                 <TextBlock Text="{Binding Name}"
-                                           Foreground="{StaticResource ControlForegroundBrush}"
+                                           Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
                                            FontSize="14"/>
-                                <TextBlock Foreground="{StaticResource ControlForegroundBrush}"
+                                <TextBlock Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
                                            Opacity="0.6" FontSize="11"
                                            Text="{Binding CreatedTime, StringFormat='Created: {0:yyyy-MM-dd HH:mm}'}"/>
                             </StackPanel>
@@ -324,7 +337,10 @@
         </Grid>
 
         <!-- Bottom status bar -->
-        <Border Grid.Row="2" Background="{StaticResource ControlBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2"
+                Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
+                BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+                BorderThickness="0,1,0,0">
             <Grid Margin="4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -333,9 +349,11 @@
 
                 <!-- Left: session name -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Session: " Foreground="{StaticResource ControlForegroundBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Session: "
+                               Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                               VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding ActiveSessionName}"
-                               Foreground="{StaticResource ControlForegroundBrush}"
+                               Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
 
