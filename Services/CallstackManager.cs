@@ -23,10 +23,16 @@ namespace MegaCallstack.Services
 
         public SolutionSessionData SessionData => _sessionData;
 
+        // EnvDTE event objects are kept alive by this reference; without it the
+        // GC can collect them and the break/run/design mode events stop firing.
+        private EnvDTE.Events _dteEvents;
+        private EnvDTE.DebuggerEvents _debuggerEvents;
+
         public CallstackManager(DTE dte)
         {
             _dte = dte;
             _sessionData = new SolutionSessionData();
+            HookDebuggerEvents(dte);
         }
 
         public string GetSolutionDirectory()
@@ -354,6 +360,33 @@ namespace MegaCallstack.Services
             }
 
             Logger.Log($"LoadData: Loaded {_sessionData.Sessions.Count} session metadata");
+
+            LoadActiveSessionId();
+        }
+
+        private void LoadActiveSessionId()
+        {
+            if (_dataDirectory == null)
+                return;
+
+            var filePath = Path.Combine(_dataDirectory, Constants.ActiveSessionFileName);
+            if (!File.Exists(filePath))
+                return;
+
+            try
+            {
+                var json = File.ReadAllText(filePath);
+                var activeId = JsonConvert.DeserializeObject<string>(json);
+                if (!string.IsNullOrEmpty(activeId) && _sessionData.Sessions.Any(s => s.Id == activeId))
+                {
+                    _sessionData.ActiveSessionId = activeId;
+                    Logger.Log($"LoadActiveSessionId: Restored {activeId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("LoadActiveSessionId: Failed to load active session id", ex);
+            }
         }
 
         public async Task LoadSessionDetailsAsync(CallstackSession session)
@@ -586,6 +619,34 @@ namespace MegaCallstack.Services
             }
         }
 
+        public bool HasCallstacks(CallstackSession session)
+        {
+            if (session == null)
+                return false;
+
+            if (session.IsLoaded)
+                return session.Callstacks.Count > 0;
+
+            var folder = GetSessionFolderPath(session);
+            if (folder == null)
+                return false;
+
+            var filePath = Path.Combine(folder, Constants.CallstacksFileName);
+            if (!File.Exists(filePath))
+                return false;
+
+            try
+            {
+                var json = File.ReadAllText(filePath);
+                var callstacks = JsonConvert.DeserializeObject<List<CallstackData>>(json);
+                return callstacks != null && callstacks.Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public async Task<CallstackData> CaptureCurrentCallstackAsync()
         {
             await SwitchToMainThreadIfNeededAsync();
@@ -776,9 +837,93 @@ namespace MegaCallstack.Services
             return _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.ActiveSessionId);
         }
 
+        public CallstackSession GetLastActiveSession()
+        {
+            return GetActiveSession();
+        }
+
+        public bool IsDebuggerInBreakMode
+        {
+            get
+            {
+                try
+                {
+                    return _dte?.Debugger != null && _dte.Debugger.CurrentMode == dbgDebugMode.dbgBreakMode;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        public bool HasAnySessions
+        {
+            get { return _sessionData.Sessions.Count > 0; }
+        }
+
+        private void HookDebuggerEvents(DTE dte)
+        {
+            if (dte == null)
+            {
+                Logger.Log("CallstackManager: No DTE, skipping debugger-event subscription");
+                return;
+            }
+
+            try
+            {
+                _dteEvents = dte.Events;
+                _debuggerEvents = _dteEvents.DebuggerEvents;
+                _debuggerEvents.OnEnterBreakMode += (dbgEventReason reason, ref dbgExecutionAction executionAction) =>
+                {
+                    Logger.Log("CallstackManager: Entered break mode");
+                    InvalidateDebuggerDependentCommands();
+                };
+                _debuggerEvents.OnEnterRunMode += (dbgEventReason reason) =>
+                {
+                    Logger.Log("CallstackManager: Entered run mode");
+                    InvalidateDebuggerDependentCommands();
+                };
+                _debuggerEvents.OnEnterDesignMode += (dbgEventReason reason) =>
+                {
+                    Logger.Log("CallstackManager: Entered design mode");
+                    InvalidateDebuggerDependentCommands();
+                };
+                Logger.Log("CallstackManager: Subscribed to debugger events");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("CallstackManager: Failed to subscribe to debugger events", ex);
+            }
+        }
+
+        private void InvalidateDebuggerDependentCommands()
+        {
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+
         public void SetActiveSession(string sessionId)
         {
             _sessionData.ActiveSessionId = sessionId;
+            SaveActiveSessionId();
+        }
+
+        private void SaveActiveSessionId()
+        {
+            if (_dataDirectory == null)
+                return;
+
+            try
+            {
+                var filePath = Path.Combine(_dataDirectory, Constants.ActiveSessionFileName);
+                var json = JsonConvert.SerializeObject(_sessionData.ActiveSessionId, Formatting.Indented);
+                File.WriteAllText(filePath, json);
+                Logger.Log($"SaveActiveSessionId: Saved {_sessionData.ActiveSessionId}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("SaveActiveSessionId: Failed to save active session id", ex);
+            }
         }
 
         public List<TreeViewNode> BuildTreeNodes(CallstackSession session)

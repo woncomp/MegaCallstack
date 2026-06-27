@@ -7,6 +7,7 @@ namespace MegaCallstack
         public const string SessionFileName = "session.json";
         public const string CallstacksFileName = "callstacks.json";
         public const string StateFileName = "state.json";
+        public const string ActiveSessionFileName = "active_session.json";
         public const int LeafNodeDisplayMaxLength = 32;
 
         /// <summary>

@@ -115,7 +115,14 @@ namespace MegaCallstack.ViewModels
         public bool IsTreeViewMode
         {
             get => _isTreeViewMode;
-            set { _isTreeViewMode = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsSessionViewMode)); }
+            set
+            {
+                _isTreeViewMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsSessionViewMode));
+                OnPropertyChanged(nameof(IsHomePageVisible));
+                OnPropertyChanged(nameof(IsTreeViewContentVisible));
+            }
         }
 
         public bool IsSessionViewMode => !IsTreeViewMode;
@@ -127,6 +134,31 @@ namespace MegaCallstack.ViewModels
         }
 
         public bool HasActiveSession => _activeSession != null;
+
+        public CallstackSession PreviousSession
+        {
+            get => _manager.GetLastActiveSession();
+        }
+
+        public bool CanResumePreviousSession => PreviousSession != null;
+
+        public string PreviousSessionName => PreviousSession?.Name ?? string.Empty;
+
+        public bool HasAnySessions => _manager.HasAnySessions;
+
+        public bool IsHomePageVisible => IsTreeViewMode && !HasActiveSession;
+
+        public bool IsTreeViewContentVisible => IsTreeViewMode && HasActiveSession;
+
+        public string CaptureButtonTooltip
+        {
+            get
+            {
+                if (CanCapture())
+                    return "Click to capture the current callstack.";
+                return "Stop at a breakpoint to capture a callstack.";
+            }
+        }
 
         public CallstackSession SelectedSession
         {
@@ -182,11 +214,23 @@ namespace MegaCallstack.ViewModels
 
         public void LoadData()
         {
-            _activeSession = _manager.GetActiveSession();
-            ActiveSessionName = _activeSession?.Name ?? string.Empty;
-            OnPropertyChanged(nameof(HasActiveSession));
+            _activeSession = null;
+            ActiveSessionName = string.Empty;
+            NotifyHomePageProperties();
             RefreshTreeNodes();
             RefreshSessionsList();
+        }
+
+        private void NotifyHomePageProperties()
+        {
+            OnPropertyChanged(nameof(HasActiveSession));
+            OnPropertyChanged(nameof(PreviousSession));
+            OnPropertyChanged(nameof(PreviousSessionName));
+            OnPropertyChanged(nameof(CanResumePreviousSession));
+            OnPropertyChanged(nameof(HasAnySessions));
+            OnPropertyChanged(nameof(IsHomePageVisible));
+            OnPropertyChanged(nameof(IsTreeViewContentVisible));
+            OnPropertyChanged(nameof(CaptureButtonTooltip));
         }
 
         private void RefreshTreeNodes()
@@ -207,6 +251,10 @@ namespace MegaCallstack.ViewModels
             {
                 Sessions.Add(session);
             }
+            OnPropertyChanged(nameof(HasAnySessions));
+            OnPropertyChanged(nameof(PreviousSession));
+            OnPropertyChanged(nameof(PreviousSessionName));
+            OnPropertyChanged(nameof(CanResumePreviousSession));
             ApplySessionFilter();
         }
 
@@ -245,10 +293,10 @@ namespace MegaCallstack.ViewModels
                 _activeSession = _manager.CreateSession(sessionName);
                 _manager.SetActiveSession(_activeSession.Id);
                 ActiveSessionName = _activeSession.Name;
-                OnPropertyChanged(nameof(HasActiveSession));
-            }
+                NotifyHomePageProperties();
 
-            await EnsureSessionLoadedAsync(_activeSession);
+                await EnsureSessionLoadedAsync(_activeSession);
+            }
 
             _manager.AddOrUpdateCallstack(_activeSession, callstack);
             await _manager.SaveSessionMetadataAsync(_activeSession);
@@ -260,7 +308,7 @@ namespace MegaCallstack.ViewModels
 
         private bool CanCapture()
         {
-            return true;
+            return _manager.IsDebuggerInBreakMode;
         }
 
         private void ExecuteSearch()
@@ -479,7 +527,7 @@ namespace MegaCallstack.ViewModels
             _manager.SetActiveSession(session.Id);
             _activeSession = session;
             ActiveSessionName = session.Name;
-            OnPropertyChanged(nameof(HasActiveSession));
+            NotifyHomePageProperties();
 
             await EnsureSessionLoadedAsync(session);
 
@@ -501,7 +549,7 @@ namespace MegaCallstack.ViewModels
             _manager.SetActiveSession(session.Id);
             _activeSession = session;
             ActiveSessionName = session.Name;
-            OnPropertyChanged(nameof(HasActiveSession));
+            NotifyHomePageProperties();
 
             await EnsureSessionLoadedAsync(session);
 
@@ -543,19 +591,19 @@ namespace MegaCallstack.ViewModels
 
             if (_activeSession == session)
             {
-                _activeSession = null;
-                ActiveSessionName = string.Empty;
-                OnPropertyChanged(nameof(HasActiveSession));
-                RefreshTreeNodes();
-            }
-
-            RefreshSessionsList();
+            _activeSession = null;
+            ActiveSessionName = string.Empty;
+            NotifyHomePageProperties();
+            RefreshTreeNodes();
         }
 
-        private bool CanDeleteSelectedSession()
-        {
-            return _selectedSession != null;
-        }
+        RefreshSessionsList();
+    }
+
+    private bool CanDeleteSelectedSession()
+    {
+        return _selectedSession != null;
+    }
 
         private void ExecuteDeleteSelectedSession()
         {
