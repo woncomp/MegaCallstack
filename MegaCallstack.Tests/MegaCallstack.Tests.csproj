@@ -38,10 +38,10 @@
   <ItemGroup>
     <Compile Include="CallstackFrameTests.cs" />
     <Compile Include="CallstackSessionTests.cs" />
-    <Compile Include="HashUtilsTests.cs" />
     <Compile Include="TreeBuildingTests.cs" />
     <Compile Include="TreeViewNodeTests.cs" />
     <Compile Include="ScopeParserTests.cs" />
+    <Compile Include="FuzzyBookmarkEngineTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MegaCallstack.csproj">

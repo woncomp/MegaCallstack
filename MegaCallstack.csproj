@@ -53,13 +53,12 @@
     <Compile Include="Models\CallstackData.cs" />
     <Compile Include="Models\CallstackSession.cs" />
     <Compile Include="Models\SessionState.cs" />
-    <Compile Include="Models\HashUtils.cs" />
     <Compile Include="Models\SolutionSessionData.cs" />
     <Compile Include="Models\TreeViewNode.cs" />
     <Compile Include="Services\IColorPickerService.cs" />
     <Compile Include="Services\CallstackManager.cs" />
     <Compile Include="Services\SolutionRootDetector.cs" />
-    <Compile Include="Services\ScopeParser.cs" />
+    <Compile Include="Services\FuzzyBookmarkEngine.cs" />
     <Compile Include="Dialogs\ColorPickerDialog.xaml.cs">
       <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
     </Compile>
