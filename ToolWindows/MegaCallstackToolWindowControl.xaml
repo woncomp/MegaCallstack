@@ -59,30 +59,6 @@
             </Setter>
         </Style>
 
-        <Style x:Key="HomePageButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Margin" Value="10,4"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="MinWidth" Value="0"/>
-            <Setter Property="MaxWidth" Value="400"/>
-        </Style>
-
-        <Style x:Key="HomePageText" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,6"/>
-        </Style>
-
-        <Style x:Key="CurvedArrowPath" TargetType="Path">
-            <Setter Property="Stroke" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
-            <Setter Property="StrokeThickness" Value="6"/>
-            <Setter Property="StrokeStartLineCap" Value="Round"/>
-            <Setter Property="StrokeEndLineCap" Value="Round"/>
-            <Setter Property="Stretch" Value="Fill"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="VerticalAlignment" Value="Stretch"/>
-        </Style>
-
         <Style x:Key="SearchTextBox" TargetType="TextBox">
             <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
             <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
@@ -338,43 +314,7 @@
             </controls:CallstackTreeView>
 
             <!-- Home page shown when no active session is available -->
-            <Grid Visibility="{Binding IsHomePageVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
-                <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
-                    <!-- Curved arrow: occupies left 50% of the parent width.
-                         Tail at bottom-right (horizontal center of treeview area).
-                         Arrowhead at top-left (aligned with the toolbar capture button).
-                         No margin/padding on the arrow element itself. -->
-                    <Grid Height="100">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Path Grid.Column="0" Style="{StaticResource CurvedArrowPath}"
-                              Data="M 0.95 0.95 Q 0.3 0.45 0.15 0.2 L 0.18 0.08 M 0.07 0.14 L 0.18 0.08 L 0.24 0.16"/>
-                    </Grid>
-
-                    <TextBlock Text="Click to capture a callstack" Style="{StaticResource HomePageText}" FontSize="15" FontWeight="SemiBold"/>
-
-                    <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
-
-                    <!-- Resume section: instruction text above the session-name button -->
-                    <TextBlock Text="Resume the previous session" Style="{StaticResource HomePageText}" FontSize="13"
-                               Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
-                    <Button Style="{StaticResource HomePageButton}"
-                            Command="{Binding ActivateSessionCommand}"
-                            CommandParameter="{Binding PreviousSession}"
-                            IsEnabled="{Binding CanResumePreviousSession}"
-                            Content="{Binding PreviousSessionName}"
-                            Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
-
-                    <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
-
-                    <Button Style="{StaticResource HomePageButton}"
-                            Command="{Binding SwitchToSessionViewCommand}"
-                            IsEnabled="{Binding HasAnySessions}"
-                            Content="Browse session history"/>
-                </StackPanel>
-            </Grid>
+            <local:HomePageControl Visibility="{Binding IsHomePageVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
 
             <!-- Session View content -->
             <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
