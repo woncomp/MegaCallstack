@@ -84,14 +84,7 @@
                         <MenuItem Header="Jump to stack frame position"
                                   Command="{Binding PlacementTarget.Tag.JumpToFrameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
-                        <MenuItem Header="Set Color">
-                            <MenuItem Header="Red" Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="#FFE74856"/>
-                            <MenuItem Header="Green" Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="#FF3DC46D"/>
-                            <MenuItem Header="Blue" Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="#FF3B99E4"/>
-                            <MenuItem Header="Orange" Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="#FFD69E3E"/>
-                            <MenuItem Header="Purple" Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="#FFB062D1"/>
-                        </MenuItem>
-                        <MenuItem Header="Clear Color" Command="{Binding PlacementTarget.Tag.ClearColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Set Color..." Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
                         <MenuItem Header="{Binding PlacementTarget.Tag.AncestorsMenuHeader, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding PlacementTarget.Tag.ToggleAncestorsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

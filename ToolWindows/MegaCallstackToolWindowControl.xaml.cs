@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using MegaCallstack.Models;
+using MegaCallstack.Dialogs;
 using MegaCallstack.Services;
 using MegaCallstack.ViewModels;
 using Microsoft.VisualStudio.Shell;
@@ -48,7 +49,7 @@ namespace MegaCallstack.ToolWindows
             HookSolutionEvents(dte);
             Logger.Log("ToolWindow: LoadData and root detection complete");
 
-            _viewModel = new MegaCallstackViewModel(_manager);
+            _viewModel = new MegaCallstackViewModel(_manager, new WpfColorPickerService(Window.GetWindow(this)));
             _viewModel.NavigateToFile += OnNavigateToFile;
             _viewModel.TreeUpdated += OnTreeUpdated;
             DataContext = _viewModel;
