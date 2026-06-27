@@ -311,6 +311,96 @@ namespace MegaCallstack.Tests
             var node = new ScopeNode("class Foo", "Class", 5, 4);
             node.EndLine = 10;
             Assert.AreEqual("[Class] class Foo : [5, 10]", node.ToString());
+            Assert.AreEqual(0f, node.Rank);
+        }
+
+        [TestMethod]
+        public void Parse_Rank_DifferentSizes_AssignsRanks()
+        {
+            var lines = new[]
+            {
+                "class Foo",
+                "{",
+                "    int x;",
+                "    int y;",
+                "    int z;",
+                "}",
+                "",
+                "class Bar",
+                "{",
+                "    int a;",
+                "}",
+                "",
+                "class Foo",
+                "{",
+                "}",
+            };
+
+            var parser = new LightScopeParser();
+            var root = parser.Parse(lines);
+
+            var allNodes = new List<ScopeNode>();
+            CollectScopeNodes(root, allNodes);
+            var fooNodes = allNodes.Where(n => n.Name == "class Foo").ToList();
+            Assert.AreEqual(2, fooNodes.Count);
+
+            var smaller = fooNodes.OrderBy(n => n.EndLine - n.StartLine).First();
+            var larger = fooNodes.OrderBy(n => n.EndLine - n.StartLine).Last();
+            Assert.AreEqual(0f, smaller.Rank);
+            Assert.AreEqual(1f, larger.Rank);
+        }
+
+        [TestMethod]
+        public void Parse_Rank_EqualSizes_AllZero()
+        {
+            var lines = new[]
+            {
+                "class Foo",
+                "{",
+                "}",
+                "",
+                "class Foo",
+                "{",
+                "}",
+            };
+
+            var parser = new LightScopeParser();
+            var root = parser.Parse(lines);
+
+            var allNodes = new List<ScopeNode>();
+            CollectScopeNodes(root, allNodes);
+            var fooNodes = allNodes.Where(n => n.Name == "class Foo").ToList();
+            Assert.AreEqual(2, fooNodes.Count);
+            Assert.IsTrue(fooNodes.All(n => n.Rank == 0f));
+        }
+
+        [TestMethod]
+        public void Parse_Rank_UniqueName_RankIsZero()
+        {
+            var lines = new[]
+            {
+                "class Foo",
+                "{",
+                "    void Bar()",
+                "    {",
+                "    }",
+                "}"
+            };
+
+            var parser = new LightScopeParser();
+            var root = parser.Parse(lines);
+
+            var allNodes = new List<ScopeNode>();
+            CollectScopeNodes(root, allNodes);
+            foreach (var node in allNodes.Where(n => n.Type != "Filler"))
+                Assert.AreEqual(0f, node.Rank);
+        }
+
+        private void CollectScopeNodes(ScopeNode node, List<ScopeNode> result)
+        {
+            result.Add(node);
+            foreach (var child in node.Children)
+                CollectScopeNodes(child, result);
         }
     }
 }
