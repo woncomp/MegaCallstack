@@ -140,7 +140,7 @@ namespace MegaCallstack.ViewModels
 
         public bool CanResumePreviousSession => PreviousSession != null;
 
-        public string PreviousSessionName => PreviousSession?.Name ?? string.Empty;
+        public string PreviousSessionName => string.IsNullOrWhiteSpace(PreviousSession?.Name) ? "Untitled Session" : PreviousSession.Name;
 
         public bool HasAnySessions => _manager.HasAnySessions;
 
@@ -212,33 +212,15 @@ namespace MegaCallstack.ViewModels
         public ICommand DeleteSessionCommand { get; }
         public ICommand DeleteSelectedSessionCommand { get; }
 
-        public async Task LoadDataAsync()
+        public Task LoadDataAsync()
         {
-            var activeId = _manager.SessionData.ActiveSessionId;
-            if (!string.IsNullOrEmpty(activeId))
-            {
-                var activeSession = _manager.SessionData.Sessions.FirstOrDefault(s => s.Id == activeId);
-                if (activeSession != null)
-                {
-                    _activeSession = activeSession;
-                    ActiveSessionName = activeSession.Name;
-                    await EnsureSessionLoadedAsync(activeSession);
-                }
-                else
-                {
-                    _activeSession = null;
-                    ActiveSessionName = string.Empty;
-                }
-            }
-            else
-            {
-                _activeSession = null;
-                ActiveSessionName = string.Empty;
-            }
+            _activeSession = null;
+            ActiveSessionName = string.Empty;
 
             NotifyHomePageProperties();
             RefreshTreeNodes();
             RefreshSessionsList();
+            return Task.CompletedTask;
         }
 
         private void NotifyHomePageProperties()
@@ -309,7 +291,7 @@ namespace MegaCallstack.ViewModels
             if (_activeSession == null)
             {
                 var leafFrame = callstack.Frames.LastOrDefault();
-                var sessionName = leafFrame?.FunctionName ?? "New Session";
+                var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
                 _activeSession = _manager.CreateSession(sessionName);
                 _manager.SetActiveSession(_activeSession.Id);
                 ActiveSessionName = _activeSession.Name;
@@ -617,7 +599,7 @@ namespace MegaCallstack.ViewModels
                 return;
 
             var leafFrame = callstack.Frames.LastOrDefault();
-            var sessionName = leafFrame?.FunctionName ?? "New Session";
+            var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
             var session = _manager.CreateSession(sessionName);
             _manager.SetActiveSession(session.Id);
             _activeSession = session;
