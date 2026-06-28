@@ -397,12 +397,13 @@ namespace MegaCallstack.ViewModels
             return SelectedNode?.Parent?.Frame != null;
         }
 
-        private void ExecuteJumpToCaller()
+        private async void ExecuteJumpToCaller()
         {
             var parent = SelectedNode?.Parent;
             if (parent?.Frame != null)
             {
-                NavigateToFile?.Invoke(parent.Frame.FileName, parent.Frame.LineNumber);
+                int line = await _manager.ResolveFrameLineNumberAsync(parent.Frame);
+                NavigateToFile?.Invoke(parent.Frame.FileName, line);
             }
         }
 
@@ -411,11 +412,12 @@ namespace MegaCallstack.ViewModels
             return SelectedNode?.Frame != null && !SelectedNode.IsLeaf;
         }
 
-        private void ExecuteJumpToFrame()
+        private async void ExecuteJumpToFrame()
         {
             if (SelectedNode?.Frame != null)
             {
-                NavigateToFile?.Invoke(SelectedNode.Frame.FileName, SelectedNode.Frame.LineNumber);
+                int line = await _manager.ResolveFrameLineNumberAsync(SelectedNode.Frame);
+                NavigateToFile?.Invoke(SelectedNode.Frame.FileName, line);
             }
         }
 

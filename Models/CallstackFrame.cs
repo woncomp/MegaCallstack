@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using MegaCallstack.Services;
 
 namespace MegaCallstack.Models
 {
@@ -11,6 +12,7 @@ namespace MegaCallstack.Models
         public string Language { get; set; }
         public string Module { get; set; }
         public string LineContent { get; set; }
+        public FuzzyBookmark Bookmark { get; set; }
 
         public CallstackFrame()
         {

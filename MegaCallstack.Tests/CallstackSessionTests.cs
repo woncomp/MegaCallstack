@@ -388,6 +388,84 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(0, session.Callstacks.Count);
         }
 
+        [TestMethod]
+        public async Task ResolveFrameLineNumberAsync_WithBookmark_UpdatesLineNumber()
+        {
+            var path = Path.Combine(_tempDirectory, "source.cs");
+            var original = new[]
+            {
+                "class Program",
+                "{",
+                "    static void Main()",
+                "    {",
+                "        Console.WriteLine(\"hi\");",
+                "    }",
+                "}"
+            };
+            File.WriteAllLines(path, original);
+
+            var engine = new FuzzyBookmarkEngine();
+            var bookmark = engine.Create(path, 5);
+
+            var edited = new[]
+            {
+                "// added header",
+                "class Program",
+                "{",
+                "    static void Main()",
+                "    {",
+                "        Console.WriteLine(\"hi\");",
+                "    }",
+                "}"
+            };
+            File.WriteAllLines(path, edited);
+
+            var frame = new CallstackFrame("Main", path, 5)
+            {
+                Bookmark = bookmark
+            };
+
+            var manager = CreateManager();
+            int line = await manager.ResolveFrameLineNumberAsync(frame);
+
+            Assert.AreEqual(6, line);
+            Assert.AreEqual(6, frame.LineNumber);
+        }
+
+        [TestMethod]
+        public async Task ResolveFrameLineNumberAsync_WithoutBookmark_ReturnsStoredLineNumber()
+        {
+            var frame = new CallstackFrame("Main", "source.cs", 42);
+
+            var manager = CreateManager();
+            int line = await manager.ResolveFrameLineNumberAsync(frame);
+
+            Assert.AreEqual(42, line);
+        }
+
+        [TestMethod]
+        public async Task ResolveFrameLineNumberAsync_MissingFile_ReturnsStoredLineNumber()
+        {
+            var engine = new FuzzyBookmarkEngine();
+            var bookmark = new FuzzyBookmark
+            {
+                LineContent = "x",
+                LineHash = 1,
+                ScopePath = new uint[0],
+                Ratio = 0.5
+            };
+
+            var frame = new CallstackFrame("Main", "missing_file_that_does_not_exist.cs", 42)
+            {
+                Bookmark = bookmark
+            };
+
+            var manager = CreateManager();
+            int line = await manager.ResolveFrameLineNumberAsync(frame);
+
+            Assert.AreEqual(42, line);
+        }
+
         private CallstackManager CreateManager()
         {
             return new CallstackManager(null);

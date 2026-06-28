@@ -18,6 +18,7 @@ namespace MegaCallstack.Services
         private SolutionSessionData _sessionData;
         private string _dataDirectory;
         private List<string> _userCodeRoots;
+        private readonly FuzzyBookmarkEngine _bookmarkEngine = new FuzzyBookmarkEngine();
 
         private static readonly Random _random = new Random();
 
@@ -694,10 +695,24 @@ namespace MegaCallstack.Services
                     }
 
                     Logger.Log($"Capture: Frame {i}: Func={functionName}, File={fileName}, Line={lineNumber}, Lang={language}, Module={module}, Source={lineContent}");
-                    rawFrames.Add(new CallstackFrame(functionName, fileName, lineNumber, language, module)
+                    var frame = new CallstackFrame(functionName, fileName, lineNumber, language, module)
                     {
                         LineContent = lineContent
-                    });
+                    };
+
+                    if (!string.IsNullOrEmpty(fileName) && lineNumber > 0)
+                    {
+                        try
+                        {
+                            frame.Bookmark = _bookmarkEngine.Create(fileName, lineNumber);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log($"Capture: Failed to create fuzzy bookmark for {fileName}:{lineNumber}: {ex.Message}");
+                        }
+                    }
+
+                    rawFrames.Add(frame);
                 }
                 catch
                 {
@@ -721,6 +736,39 @@ namespace MegaCallstack.Services
             }
 
             return new CallstackData(frames);
+        }
+
+        /// <summary>
+        /// Resolves a frame's fuzzy bookmark against the current source file and
+        /// returns the current line number. If the bookmark is missing, the file
+        /// cannot be found, or resolution fails, the stored line number is returned
+        /// unchanged.
+        /// </summary>
+        public async Task<int> ResolveFrameLineNumberAsync(CallstackFrame frame)
+        {
+            if (frame?.Bookmark == null || string.IsNullOrEmpty(frame.FileName))
+                return frame?.LineNumber ?? 0;
+
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    if (!File.Exists(frame.FileName))
+                        return frame.LineNumber;
+
+                    var result = _bookmarkEngine.Resolve(frame.Bookmark, frame.FileName);
+                    if (result.Line > 0)
+                    {
+                        frame.LineNumber = result.Line;
+                    }
+                    return frame.LineNumber;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"ResolveFrameLineNumber: Failed to resolve bookmark for {frame.FileName}: {ex.Message}");
+                    return frame.LineNumber;
+                }
+            });
         }
 
         private List<CallstackFrame> TrimToUserCode(List<CallstackFrame> frames)
