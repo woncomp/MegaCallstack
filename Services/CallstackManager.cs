@@ -312,7 +312,11 @@ namespace MegaCallstack.Services
         {
             await SwitchToMainThreadIfNeededAsync();
 
-            if (_dataDirectory == null)
+            if (_dte != null)
+            {
+                _dataDirectory = GetDataDirectory();
+            }
+            else if (_dataDirectory == null)
             {
                 _dataDirectory = GetDataDirectory();
             }
@@ -599,14 +603,19 @@ namespace MegaCallstack.Services
         {
             await SwitchToMainThreadIfNeededAsync();
 
-            if (_dataDirectory == null)
+            if (_dte != null)
             {
                 _dataDirectory = GetDataDirectory();
-                if (_dataDirectory == null)
-                {
-                    Logger.Log("SaveData: No solution open, skipping");
-                    return;
-                }
+            }
+            else if (_dataDirectory == null)
+            {
+                _dataDirectory = GetDataDirectory();
+            }
+
+            if (_dataDirectory == null)
+            {
+                Logger.Log("SaveData: No solution open, skipping");
+                return;
             }
 
             foreach (var session in _sessionData.Sessions)
@@ -958,6 +967,11 @@ namespace MegaCallstack.Services
 
         private void SaveActiveSessionId()
         {
+            if (_dte != null)
+            {
+                _dataDirectory = GetDataDirectory();
+            }
+
             if (_dataDirectory == null)
                 return;
 

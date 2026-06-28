@@ -54,7 +54,7 @@ namespace MegaCallstack.ToolWindows
             _viewModel.TreeUpdated += OnTreeUpdated;
             DataContext = _viewModel;
 
-            _viewModel.LoadData();
+            await _viewModel.LoadDataAsync();
         }
 
         /// <summary>
@@ -85,13 +85,18 @@ namespace MegaCallstack.ToolWindows
 
         private void OnSolutionOpened()
         {
-            Logger.Log("ToolWindow: Solution reopened, recomputing user-code roots");
+            Logger.Log("ToolWindow: Solution opened/reopened, reloading sessions and recomputing roots");
             ThreadHelper.JoinableTaskFactory.Run(async () =>
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 if (_manager != null)
                 {
+                    await _manager.LoadDataAsync();
                     await _manager.ComputeSolutionRootsAsync();
+                }
+                if (_viewModel != null)
+                {
+                    await _viewModel.LoadDataAsync();
                 }
             });
         }
