@@ -79,6 +79,8 @@ namespace MegaCallstack.Models
 
         private bool _isDisplayRoot;
 
+        public bool IsRealRoot => Parent == null;
+
         public bool IsDisplayRoot
         {
             get => _isDisplayRoot;

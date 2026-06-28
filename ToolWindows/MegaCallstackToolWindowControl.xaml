@@ -185,6 +185,14 @@
                                             <vsimg:CrispImage x:Name="LeafIcon"
                                                               Moniker="{x:Static vscat:KnownMonikers.ThisLine}"
                                                               Width="16" Height="16"/>
+                                            <vsimg:CrispImage x:Name="RealRootIcon"
+                                                              Moniker="{x:Static vscat:KnownMonikers.InitialNode}"
+                                                              Width="16" Height="16"
+                                                              Visibility="Collapsed"/>
+                                            <vsimg:CrispImage x:Name="DisplayRootIcon"
+                                                              Moniker="{x:Static vscat:KnownMonikers.ShowParentNodeOnly}"
+                                                              Width="16" Height="16"
+                                                              Visibility="Collapsed"/>
                                         </Grid>
 
                                         <ContentPresenter x:Name="PART_Header"
@@ -218,6 +226,20 @@
                                 <Setter TargetName="Expander" Property="Visibility" Value="Visible"/>
                                 <Setter TargetName="LeafIcon" Property="Visibility" Value="Collapsed"/>
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsRealRoot}" Value="True">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="LeafIcon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="RealRootIcon" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="DisplayRootIcon" Property="Visibility" Value="Collapsed"/>
+                                <Setter Property="IsExpanded" Value="True"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsDisplayRoot}" Value="True">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="LeafIcon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="RealRootIcon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="DisplayRootIcon" Property="Visibility" Value="Visible"/>
+                                <Setter Property="IsExpanded" Value="True"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -338,10 +360,6 @@
                            </Grid.ColumnDefinitions>
 
                            <StackPanel Grid.Column="0" Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                                <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.ShowParentNodeOnly}"
-                                                  Width="16" Height="16"
-                                                  Margin="0,0,4,0"
-                                                  Visibility="{Binding IsDisplayRoot, Converter={StaticResource BoolToVis}}"/>
                                <controls:HighlightTextBlock Text="{Binding DisplayText}"
                                                             HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             HighlightBackground="#FFFFFF00"
