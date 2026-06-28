@@ -29,6 +29,23 @@ namespace MegaCallstack.Controls
             }
         }
 
+        public CallstackTreeViewItem()
+        {
+            this.RequestBringIntoView += OnRequestBringIntoView;
+        }
+
+        private void OnRequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        {
+            if (e.TargetObject == this)
+            {
+                if (Template?.FindName("Bd", this) is FrameworkElement header)
+                {
+                    header.BringIntoView();
+                    e.Handled = true;
+                }
+            }
+        }
+
         protected override DependencyObject GetContainerForItemOverride()
         {
             return new CallstackTreeViewItem();
