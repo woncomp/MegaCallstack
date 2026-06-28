@@ -69,6 +69,36 @@
             <Setter Property="CaretBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
         </Style>
 
+        <Style x:Key="NoteEmojiButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="1,-2"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource {x:Static vsui:ThemedDialogColors.ActionButtonBackgroundActiveBrushKey}}"/>
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="TreeViewItemStyle" TargetType="controls:CallstackTreeViewItem">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
@@ -85,6 +115,7 @@
                                   Command="{Binding PlacementTarget.Tag.JumpToFrameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
                         <MenuItem Header="Set Color..." Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Add Note..." Command="{Binding PlacementTarget.Tag.AddNoteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
                         <MenuItem Header="Show Ancestors"
                                   Command="{Binding PlacementTarget.Tag.ToggleAncestorsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -300,16 +331,48 @@
                       ItemContainerStyle="{StaticResource TreeViewItemStyle}">
                 <controls:CallstackTreeView.ItemTemplate>
                    <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
-                       <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                            <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.ShowParentNodeOnly}"
-                                              Width="16" Height="16"
-                                              Margin="0,0,4,0"
-                                              Visibility="{Binding IsDisplayRoot, Converter={StaticResource BoolToVis}}"/>
-                           <controls:HighlightTextBlock Text="{Binding DisplayText}"
-                                                        HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        HighlightBackground="#FFFFFF00"
-                                                        Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
-                       </StackPanel>
+                       <Grid>
+                           <Grid.ColumnDefinitions>
+                               <ColumnDefinition Width="*"/>
+                               <ColumnDefinition Width="Auto"/>
+                           </Grid.ColumnDefinitions>
+
+                           <StackPanel Grid.Column="0" Orientation="Horizontal" ToolTip="{Binding TooltipText}">
+                                <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.ShowParentNodeOnly}"
+                                                  Width="16" Height="16"
+                                                  Margin="0,0,4,0"
+                                                  Visibility="{Binding IsDisplayRoot, Converter={StaticResource BoolToVis}}"/>
+                               <controls:HighlightTextBlock Text="{Binding DisplayText}"
+                                                            HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            HighlightBackground="#FFFFFF00"
+                                                            Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                           </StackPanel>
+
+                           <ItemsControl Grid.Column="1" ItemsSource="{Binding Notes}" Margin="4,0,0,0">
+                               <ItemsControl.ItemsPanel>
+                                   <ItemsPanelTemplate>
+                                       <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"/>
+                                   </ItemsPanelTemplate>
+                               </ItemsControl.ItemsPanel>
+                               <ItemsControl.ItemTemplate>
+                                   <DataTemplate DataType="{x:Type models:NodeNote}">
+                                       <Button Command="{Binding DataContext.EditNoteCommand, RelativeSource={RelativeSource AncestorType=controls:CallstackTreeView}}"
+                                               CommandParameter="{Binding}"
+                                               Style="{StaticResource NoteEmojiButtonStyle}"
+                                               ToolTipService.InitialShowDelay="0"
+                                               Cursor="Hand">
+                                           <Button.ToolTip>
+                                               <TextBlock Text="{Binding Text}"
+                                                          TextAlignment="Left"
+                                                          TextWrapping="Wrap"
+                                                          MaxWidth="300"/>
+                                           </Button.ToolTip>
+                                           <TextBlock Text="{Binding Emoji}" FontSize="14" VerticalAlignment="Center" Margin="0,-1"/>
+                                       </Button>
+                                   </DataTemplate>
+                               </ItemsControl.ItemTemplate>
+                           </ItemsControl>
+                       </Grid>
                    </HierarchicalDataTemplate>
                 </controls:CallstackTreeView.ItemTemplate>
             </controls:CallstackTreeView>

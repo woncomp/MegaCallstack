@@ -49,7 +49,7 @@ namespace MegaCallstack.ToolWindows
             HookSolutionEvents(dte);
             Logger.Log("ToolWindow: LoadData and root detection complete");
 
-            _viewModel = new MegaCallstackViewModel(_manager, new WpfColorPickerService(Window.GetWindow(this)));
+            _viewModel = new MegaCallstackViewModel(_manager, new WpfColorPickerService(Window.GetWindow(this)), new WpfNoteEditorService(Window.GetWindow(this)));
             _viewModel.NavigateToFile += OnNavigateToFile;
             _viewModel.TreeUpdated += OnTreeUpdated;
             DataContext = _viewModel;

@@ -139,6 +139,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(0, loaded.NodeColors.Count);
             Assert.AreEqual(0, loaded.CollapsedNodes.Count);
             Assert.AreEqual(0, loaded.HiddenAncestorNodes.Count);
+            Assert.AreEqual(0, loaded.NodeNotes.Count);
         }
 
         [TestMethod]
@@ -171,6 +172,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(3, loaded.Callstacks[0].Frames.Count);
             Assert.AreEqual("#FF0000", loaded.NodeColors[100]);
             Assert.IsTrue(loaded.CollapsedNodes[200]);
+            Assert.AreEqual(0, loaded.NodeNotes.Count);
         }
 
         [TestMethod]
@@ -212,6 +214,27 @@ namespace MegaCallstack.Tests
             var folder = Path.Combine(_tempDirectory, session.FolderName);
             Assert.IsTrue(Directory.Exists(folder));
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.StateFileName)));
+        }
+
+        [TestMethod]
+        public async Task SaveNotesAsync_WritesOnlyNotesFile()
+        {
+            var manager = CreateManager();
+            InjectDataDirectory(manager);
+
+            var session = manager.CreateSession("TestSession");
+            session.NodeNotes[100] = new System.Collections.Generic.List<NodeNote>
+            {
+                new NodeNote { Emoji = "📝", Text = "Test note" }
+            };
+
+            await manager.SaveNotesAsync(session);
+
+            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.NotesFileName)));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.StateFileName)));
         }
@@ -365,6 +388,7 @@ namespace MegaCallstack.Tests
             Assert.IsNotNull(loaded.NodeColors);
             Assert.IsNotNull(loaded.CollapsedNodes);
             Assert.IsNotNull(loaded.HiddenAncestorNodes);
+            Assert.IsNotNull(loaded.NodeNotes);
             Assert.AreEqual(0, loaded.Callstacks.Count);
         }
 
