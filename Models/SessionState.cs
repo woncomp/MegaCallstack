@@ -6,5 +6,6 @@ namespace MegaCallstack.Models
     {
         public Dictionary<int, string> NodeColors { get; set; } = new Dictionary<int, string>();
         public Dictionary<int, bool> CollapsedNodes { get; set; } = new Dictionary<int, bool>();
+        public Dictionary<int, bool> HiddenAncestorNodes { get; set; } = new Dictionary<int, bool>();
     }
 }

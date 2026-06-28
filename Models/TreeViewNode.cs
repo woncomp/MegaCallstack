@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -165,6 +166,16 @@ namespace MegaCallstack.Models
         {
             IsBold = bold;
             Parent?.SetPathBold(bold);
+        }
+
+        public IEnumerable<TreeViewNode> GetAncestors()
+        {
+            var node = Parent;
+            while (node != null)
+            {
+                yield return node;
+                node = node.Parent;
+            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

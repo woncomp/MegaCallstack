@@ -138,6 +138,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(0, loaded.Callstacks.Count);
             Assert.AreEqual(0, loaded.NodeColors.Count);
             Assert.AreEqual(0, loaded.CollapsedNodes.Count);
+            Assert.AreEqual(0, loaded.HiddenAncestorNodes.Count);
         }
 
         [TestMethod]
@@ -173,6 +174,33 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
+        public async Task LoadSessionDetailsAsync_LoadsHiddenAncestorNodes()
+        {
+            var manager = CreateManager();
+            InjectDataDirectory(manager);
+
+            var session = manager.CreateSession("TestSession");
+            var callstack = CreateTestCallstack("main", "Run", "DoWork");
+            manager.AddOrUpdateCallstack(session, callstack);
+            session.HiddenAncestorNodes[100] = true;
+            session.HiddenAncestorNodes[200] = true;
+
+            await manager.SaveSessionMetadataAsync(session);
+            await manager.SaveCallstacksAsync(session);
+            await manager.SaveStateAsync(session);
+
+            var manager2 = CreateManager();
+            InjectDataDirectory(manager2);
+            await manager2.LoadDataAsync();
+
+            var loaded = manager2.SessionData.Sessions[0];
+            await manager2.LoadSessionDetailsAsync(loaded);
+
+            Assert.IsTrue(loaded.HiddenAncestorNodes.ContainsKey(100));
+            Assert.IsTrue(loaded.HiddenAncestorNodes.ContainsKey(200));
+        }
+
+        [TestMethod]
         public async Task SaveSessionMetadataAsync_WritesOnlySessionFile()
         {
             var manager = CreateManager();
@@ -204,6 +232,24 @@ namespace MegaCallstack.Tests
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.StateFileName)));
+        }
+
+        [TestMethod]
+        public async Task SaveStateAsync_WritesHiddenAncestorNodes()
+        {
+            var manager = CreateManager();
+            InjectDataDirectory(manager);
+
+            var session = manager.CreateSession("TestSession");
+            session.HiddenAncestorNodes[100] = true;
+
+            await manager.SaveStateAsync(session);
+
+            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var json = File.ReadAllText(Path.Combine(folder, Constants.StateFileName));
+            var state = JsonConvert.DeserializeObject<SessionState>(json);
+
+            Assert.IsTrue(state.HiddenAncestorNodes.ContainsKey(100));
         }
 
         [TestMethod]
@@ -318,6 +364,7 @@ namespace MegaCallstack.Tests
             Assert.IsNotNull(loaded.Callstacks);
             Assert.IsNotNull(loaded.NodeColors);
             Assert.IsNotNull(loaded.CollapsedNodes);
+            Assert.IsNotNull(loaded.HiddenAncestorNodes);
             Assert.AreEqual(0, loaded.Callstacks.Count);
         }
 
