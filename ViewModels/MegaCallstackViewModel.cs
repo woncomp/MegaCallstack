@@ -70,24 +70,16 @@ namespace MegaCallstack.ViewModels
             set { _treeNodes = value; OnPropertyChanged(); }
         }
 
-        public ObservableCollection<TreeViewNode> DisplayTreeNodes
-        {
-            get => _displayTreeNodes;
-            set { _displayTreeNodes = value; OnPropertyChanged(); }
-        }
+       public ObservableCollection<TreeViewNode> DisplayTreeNodes
+       {
+           get => _displayTreeNodes;
+           set { _displayTreeNodes = value; OnPropertyChanged(); }
+       }
 
-        public string AncestorsMenuHeader
-        {
-            get
-            {
-                if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
-                    return "Show Ancestors";
-                return "Hide Ancestors";
-            }
-        }
+        public bool IsSelectedNodeDisplayRoot => SelectedNode?.IsDisplayRoot ?? false;
 
-        public TreeViewNode SelectedNode
-        {
+       public TreeViewNode SelectedNode
+       {
             get => _selectedNode;
             set
             {
@@ -98,15 +90,15 @@ namespace MegaCallstack.ViewModels
 
                     _selectedNode = value;
 
-                    if (_selectedNode != null)
-                        _selectedNode.IsSelected = true;
+                   if (_selectedNode != null)
+                       _selectedNode.IsSelected = true;
 
-                    UpdatePathBolding();
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(AncestorsMenuHeader));
-                }
-            }
-        }
+                   UpdatePathBolding();
+                   OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsSelectedNodeDisplayRoot));
+               }
+           }
+       }
 
         public string SearchText
         {
@@ -471,30 +463,30 @@ namespace MegaCallstack.ViewModels
             SelectedNode.ClearColorAndPropagate();
         }
 
-        private bool CanToggleAncestors()
-        {
-            if (SelectedNode == null || _activeSession == null)
-                return false;
+       private bool CanToggleAncestors()
+       {
+           if (SelectedNode == null || _activeSession == null)
+               return false;
 
-            if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
+            if (SelectedNode.IsDisplayRoot)
                 return true;
 
-            return _manager.CanHideAncestors(SelectedNode);
-        }
+           return _manager.CanHideAncestors(SelectedNode);
+       }
 
-        private async void ExecuteToggleAncestors()
-        {
-            if (SelectedNode == null || _activeSession == null)
-                return;
+       private async void ExecuteToggleAncestors()
+       {
+           if (SelectedNode == null || _activeSession == null)
+               return;
 
-            if (_manager.IsDisplayRoot(SelectedNode, _activeSession))
-            {
-                _manager.ClearHiddenAncestorsForPath(_activeSession, SelectedNode);
-            }
-            else
-            {
-                _manager.SetHiddenAncestors(_activeSession, SelectedNode);
-            }
+            if (SelectedNode.IsDisplayRoot)
+           {
+               _manager.ClearHiddenAncestorsForPath(_activeSession, SelectedNode);
+           }
+           else
+           {
+               _manager.SetHiddenAncestors(_activeSession, SelectedNode);
+           }
 
             await _manager.SaveStateAsync(_activeSession);
             RefreshTreeNodes();
