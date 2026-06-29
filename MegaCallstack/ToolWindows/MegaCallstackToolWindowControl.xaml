@@ -366,48 +366,41 @@
                       TreeViewItem.Expanded="TreeViewItem_ExpandedCollapsed"
                       controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
                       ItemContainerStyle="{StaticResource TreeViewItemStyle}">
-                <controls:CallstackTreeView.ItemTemplate>
-                   <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
-                       <Grid>
-                           <Grid.ColumnDefinitions>
-                               <ColumnDefinition Width="*"/>
-                               <ColumnDefinition Width="Auto"/>
-                           </Grid.ColumnDefinitions>
+                 <controls:CallstackTreeView.ItemTemplate>
+                    <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
+                            <controls:HighlightTextBlock Text="{Binding DisplayText}"
+                                                         HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         HighlightBackground="#FFFFFF00"
+                                                         Style="{StaticResource NodeHighlightTextStyle}"/>
 
-                           <StackPanel Grid.Column="0" Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                                <controls:HighlightTextBlock Text="{Binding DisplayText}"
-                                                             HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                             HighlightBackground="#FFFFFF00"
-                                                             Style="{StaticResource NodeHighlightTextStyle}"/>
-                           </StackPanel>
-
-                           <ItemsControl Grid.Column="1" ItemsSource="{Binding Notes}" Margin="4,0,0,0">
-                               <ItemsControl.ItemsPanel>
-                                   <ItemsPanelTemplate>
-                                       <StackPanel Orientation="Horizontal" FlowDirection="RightToLeft"/>
-                                   </ItemsPanelTemplate>
-                               </ItemsControl.ItemsPanel>
-                               <ItemsControl.ItemTemplate>
-                                   <DataTemplate DataType="{x:Type models:NodeNote}">
-                                       <Button Command="{Binding DataContext.EditNoteCommand, RelativeSource={RelativeSource AncestorType=controls:CallstackTreeView}}"
-                                               CommandParameter="{Binding}"
-                                               Style="{StaticResource NoteEmojiButtonStyle}"
-                                               ToolTipService.InitialShowDelay="0"
-                                               Cursor="Hand">
-                                           <Button.ToolTip>
-                                               <TextBlock Text="{Binding Text}"
-                                                          TextAlignment="Left"
-                                                          TextWrapping="Wrap"
-                                                          MaxWidth="300"/>
-                                           </Button.ToolTip>
-                                           <Image emoji:Image.Source="{Binding Emoji}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,-1"/>
-                                       </Button>
-                                   </DataTemplate>
-                               </ItemsControl.ItemTemplate>
-                           </ItemsControl>
-                       </Grid>
-                   </HierarchicalDataTemplate>
-                </controls:CallstackTreeView.ItemTemplate>
+                            <ItemsControl ItemsSource="{Binding Notes}" Margin="4,0,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:NodeNote}">
+                                        <Button Command="{Binding DataContext.EditNoteCommand, RelativeSource={RelativeSource AncestorType=controls:CallstackTreeView}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource NoteEmojiButtonStyle}"
+                                                ToolTipService.InitialShowDelay="0"
+                                                Cursor="Hand">
+                                            <Button.ToolTip>
+                                                <TextBlock Text="{Binding Text}"
+                                                           TextAlignment="Left"
+                                                           TextWrapping="Wrap"
+                                                           MaxWidth="300"/>
+                                            </Button.ToolTip>
+                                            <Image emoji:Image.Source="{Binding Emoji}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,-1"/>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                 </controls:CallstackTreeView.ItemTemplate>
             </controls:CallstackTreeView>
 
             <!-- Home page shown when no active session is available -->
