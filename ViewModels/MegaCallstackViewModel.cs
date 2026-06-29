@@ -427,7 +427,7 @@ namespace MegaCallstack.ViewModels
                 return;
 
             Color? initialColor = null;
-            if (SelectedNode.DisplayBackground is SolidColorBrush solidBrush)
+            if (SelectedNode.DisplayForeground is SolidColorBrush solidBrush)
             {
                 initialColor = solidBrush.Color;
             }
@@ -454,7 +454,7 @@ namespace MegaCallstack.ViewModels
 
             if (SelectedNode.Frame != null)
             {
-                _activeSession.NodeColors[SelectedNode.MergeId] = hexColor;
+                _activeSession.NodeColors[SelectedNode.NodeKey] = hexColor;
                 SaveStateAsync();
             }
         }
@@ -466,7 +466,7 @@ namespace MegaCallstack.ViewModels
 
             if (SelectedNode.Frame != null)
             {
-                _activeSession.NodeColors.Remove(SelectedNode.MergeId);
+                _activeSession.NodeColors.Remove(SelectedNode.NodeKey);
                 SaveStateAsync();
             }
 

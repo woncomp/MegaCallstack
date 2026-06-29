@@ -115,7 +115,7 @@ MegaCallstackViewModel -> TreeViewNode -> WPF TreeView
 
 - **Main thread access:** All `EnvDTE` and `ThreadHelper` calls must stay on the main thread in production. Test code passes `null` for `DTE`, so guard such calls appropriately.
 - **Lazy loading:** Do not assume `CallstackSession.Callstacks` or `NodeColors` are populated after `LoadDataAsync`. Call `CallstackManager.LoadSessionDetailsAsync(session)` first.
-- **Color propagation:** `TreeViewNode.DisplayBackground` can be explicit or inherited. The `IsColorExplicitlySet` flag distinguishes the two; `ResolveColor` only recomputes inherited colors.
+- **Color propagation:** `TreeViewNode.DisplayForeground` can be explicit or inherited. The `IsColorExplicitlySet` flag distinguishes the two; `ResolveColor` only recomputes inherited colors.
 - **No automatic session activation:** On startup there is no active session. The first capture (or manual Create Session) creates and activates a session.
 
 ## 8. Useful Commands

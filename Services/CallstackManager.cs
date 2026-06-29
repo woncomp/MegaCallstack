@@ -1068,7 +1068,7 @@ namespace MegaCallstack.Services
 
                 if (session.NodeColors.TryGetValue(frame.HashCode, out var hexColor))
                 {
-                    node.DisplayBackground = new System.Windows.Media.SolidColorBrush(
+                    node.DisplayForeground = new System.Windows.Media.SolidColorBrush(
                         (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hexColor));
                 }
 

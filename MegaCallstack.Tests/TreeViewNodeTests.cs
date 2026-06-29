@@ -16,8 +16,8 @@ namespace MegaCallstack.Tests
 
             child.SetColorAndPropagate(new SolidColorBrush(Colors.Red));
 
-            Assert.IsNotNull(parent.DisplayBackground);
-            var parentColor = ((SolidColorBrush)parent.DisplayBackground).Color;
+            Assert.IsNotNull(parent.DisplayForeground);
+            var parentColor = ((SolidColorBrush)parent.DisplayForeground).Color;
             Assert.AreEqual(Colors.Red, parentColor);
         }
 
@@ -33,8 +33,8 @@ namespace MegaCallstack.Tests
 
             child.SetColorAndPropagate(new SolidColorBrush(Colors.Blue));
 
-            Assert.IsNotNull(grandparent.DisplayBackground);
-            var grandparentColor = ((SolidColorBrush)grandparent.DisplayBackground).Color;
+            Assert.IsNotNull(grandparent.DisplayForeground);
+            var grandparentColor = ((SolidColorBrush)grandparent.DisplayForeground).Color;
             Assert.AreEqual(Colors.Blue, grandparentColor);
         }
 
@@ -53,7 +53,7 @@ namespace MegaCallstack.Tests
 
             child1.ClearColorAndPropagate();
 
-            var parentColor = ((SolidColorBrush)parent.DisplayBackground).Color;
+            var parentColor = ((SolidColorBrush)parent.DisplayForeground).Color;
             Assert.AreEqual(Colors.Green, parentColor);
         }
 
@@ -64,7 +64,7 @@ namespace MegaCallstack.Tests
             node.SetColorAndPropagate(new SolidColorBrush(Colors.Red));
             node.ClearColorAndPropagate();
 
-            Assert.IsNull(node.DisplayBackground);
+            Assert.IsNull(node.DisplayForeground);
         }
 
         [TestMethod]
@@ -121,7 +121,7 @@ namespace MegaCallstack.Tests
         public void GetEffectiveColor_ReturnsOwnColorIfSet()
         {
             var node = new TreeViewNode { DisplayText = "Node" };
-            node.DisplayBackground = new SolidColorBrush(Colors.Red);
+            node.DisplayForeground = new SolidColorBrush(Colors.Red);
 
             var color = node.GetEffectiveColor();
             Assert.IsNotNull(color);
@@ -135,7 +135,7 @@ namespace MegaCallstack.Tests
             var child = new TreeViewNode { DisplayText = "Child" };
             parent.Children.Add(child);
 
-            child.DisplayBackground = new SolidColorBrush(Colors.Green);
+            child.DisplayForeground = new SolidColorBrush(Colors.Green);
 
             var color = parent.GetEffectiveColor();
             Assert.IsNotNull(color);

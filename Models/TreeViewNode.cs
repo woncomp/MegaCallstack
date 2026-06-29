@@ -10,7 +10,7 @@ namespace MegaCallstack.Models
     {
         private string _displayText;
         private TreeViewNode _parent;
-        private Brush _displayBackground;
+        private Brush _displayForeground;
         private bool _isBold;
         private bool _isExpanded;
         private bool _isSelected;
@@ -50,10 +50,10 @@ namespace MegaCallstack.Models
             }
         }
 
-        public Brush DisplayBackground
+        public Brush DisplayForeground
         {
-            get => _displayBackground;
-            set { _displayBackground = value; OnPropertyChanged(); }
+            get => _displayForeground;
+            set { _displayForeground = value; OnPropertyChanged(); }
         }
 
         public bool IsBold
@@ -103,14 +103,14 @@ namespace MegaCallstack.Models
 
         public void SetColorAndPropagate(Brush color)
         {
-            DisplayBackground = color;
+            DisplayForeground = color;
             _isColorExplicitlySet = true;
             PropagateColorToAncestors();
         }
 
         public void ClearColorAndPropagate()
         {
-            DisplayBackground = null;
+            DisplayForeground = null;
             _isColorExplicitlySet = false;
             ResolveColor();
             PropagateColorToAncestors();
@@ -136,18 +136,18 @@ namespace MegaCallstack.Models
                 var childColor = child.GetEffectiveColor();
                 if (childColor != null)
                 {
-                    DisplayBackground = childColor;
+                    DisplayForeground = childColor;
                     return;
                 }
             }
 
-            DisplayBackground = null;
+            DisplayForeground = null;
         }
 
         public Brush GetEffectiveColor()
         {
-            if (DisplayBackground != null)
-                return DisplayBackground;
+            if (DisplayForeground != null)
+                return DisplayForeground;
 
             foreach (var child in Children)
             {

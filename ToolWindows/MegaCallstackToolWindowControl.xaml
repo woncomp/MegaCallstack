@@ -99,6 +99,19 @@
             </Setter>
         </Style>
 
+        <!-- Node text style: colored nodes use their explicit foreground; uncolored
+             nodes fall back to the theme tool-window text brush. Bold selection
+             state is applied directly so the inner HighlightTextBlock rebuilds. -->
+        <Style x:Key="NodeHighlightTextStyle" TargetType="controls:HighlightTextBlock">
+            <Setter Property="Foreground" Value="{Binding DisplayForeground}"/>
+            <Setter Property="FontWeight" Value="{Binding IsBold, Converter={StaticResource BoldConverter}}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DisplayForeground}" Value="{x:Null}">
+                    <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="TreeViewItemStyle" TargetType="controls:CallstackTreeViewItem">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
@@ -145,9 +158,10 @@
                                     Padding="{TemplateBinding Padding}"
                                     HorizontalAlignment="Stretch">
                                 <Grid>
-                                    <!-- User-set highlight color (null/transparent
-                                         for uncolored nodes, letting Bd show through). -->
-                                    <Border x:Name="ColorLayer" Background="{Binding DisplayBackground}"/>
+                                    <!-- Selection/hover backgrounds paint via
+                                         triggers below. The base row color is
+                                         provided by Bd underneath. -->
+                                    <Border x:Name="ColorLayer"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -360,10 +374,10 @@
                            </Grid.ColumnDefinitions>
 
                            <StackPanel Grid.Column="0" Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                               <controls:HighlightTextBlock Text="{Binding DisplayText}"
-                                                            HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            HighlightBackground="#FFFFFF00"
-                                                            Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                                <controls:HighlightTextBlock Text="{Binding DisplayText}"
+                                                             HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                             HighlightBackground="#FFFFFF00"
+                                                             Style="{StaticResource NodeHighlightTextStyle}"/>
                            </StackPanel>
 
                            <ItemsControl Grid.Column="1" ItemsSource="{Binding Notes}" Margin="4,0,0,0">
