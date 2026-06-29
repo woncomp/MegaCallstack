@@ -45,7 +45,7 @@
     <Compile Include="FuzzyBookmarkEngineTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MegaCallstack.csproj">
+    <ProjectReference Include="..\MegaCallstack\MegaCallstack.csproj">
       <Project>{64DB4F50-6DA9-4266-9A20-FC9F122D49BB}</Project>
       <Name>MegaCallstack</Name>
     </ProjectReference>
