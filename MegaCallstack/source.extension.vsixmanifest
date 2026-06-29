@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="MegaCallstack.95ff053c-566f-4043-96bd-3a21c1a2d47a" Version="0.0.2.0" Language="en-US" Publisher="MegaCallstack" />
+        <Identity Id="MegaCallstack.95ff053c-566f-4043-96bd-3a21c1a2d47a" Version="0.0.2.2" Language="en-US" Publisher="MegaCallstack" />
         <DisplayName>Mega Callstack</DisplayName>
         <Description xml:space="preserve">A Visual Studio extension for capturing, organizing, and navigating callstacks with session management, color coding, and search.</Description>
     </Metadata>

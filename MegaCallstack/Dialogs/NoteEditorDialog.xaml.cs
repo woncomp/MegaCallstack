@@ -45,9 +45,16 @@ namespace MegaCallstack.Dialogs
         {
             foreach (var emoji in PresetEmojis)
             {
+                var image = new Image
+                {
+                    Width = 22,
+                    Height = 22
+                };
+                Emoji.Wpf.Image.SetSource(image, emoji);
+
                 var button = new Button
                 {
-                    Content = emoji,
+                    Content = image,
                     Style = (Style)FindResource("EmojiButton")
                 };
 
