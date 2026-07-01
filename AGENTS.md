@@ -139,7 +139,7 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
 
 ## 10. Versioning
 
-- **Each time you make any change, bump the lowest version segment by 1.** Update both `Properties/AssemblyInfo.cs` (`AssemblyVersion` and `AssemblyFileVersion`) and `source.extension.vsixmanifest` (the `Version` attribute in the `Identity` element). Keep them in sync.
+- **Before committing code, while staging changes, bump the lowest version segment by 1.** Update both `Properties/AssemblyInfo.cs` (`AssemblyVersion` and `AssemblyFileVersion`) and `source.extension.vsixmanifest` (the `Version` attribute in the `Identity` element). Keep them in sync.
 - **When the user requests a release, reset the build (tail) version to 0 and bump the version based on which version component the user requested:**
   - **major**: first component (e.g., `X.y.z.w` -> `(X+1).0.0.0`)
   - **minor**: second component (e.g., `x.Y.z.w` -> `x.(Y+1).0.0`)
