@@ -73,6 +73,7 @@
     <Compile Include="Controls\HighlightTextBlock.cs" />
     <Compile Include="Controls\CallstackTreeView.cs" />
     <Compile Include="Controls\CallstackTreeViewItem.cs" />
+    <Compile Include="Controls\HorizontalScrollWheelHelper.cs" />
     <Compile Include="ToolWindows\MegaCallstackToolWindow.cs" />
     <Compile Include="ToolWindows\MegaCallstackToolWindowControl.xaml.cs">
       <DependentUpon>MegaCallstackToolWindowControl.xaml</DependentUpon>
