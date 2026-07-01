@@ -3,9 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-              xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
-              xmlns:local="clr-namespace:MegaCallstack.ToolWindows"
-              mc:Ignorable="d"
+             xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+             xmlns:local="clr-namespace:MegaCallstack.ToolWindows"
+             mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -59,19 +59,13 @@
 
     <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}">
         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
-            <!-- Curved arrow: occupies the space to the left of the title text.
-                 The center column matches the title text width, so the arrow tail
-                 ends at the horizontal position where the title text begins.
-                 Arrowhead at top-left of the left cell. -->
             <Grid Height="108">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="{Binding ActualWidth, ElementName=TitleText, Converter={StaticResource DoubleToGridLengthConverter}}"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <!-- Arrow container: the tail stretches to its size while the arrowhead stays fixed. -->
                 <Grid x:Name="ArrowContainer" Grid.Column="0">
-                    <!-- Tail curve: generated in absolute coordinates based on container size. -->
                     <Path Stroke="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
                           StrokeThickness="6"
                           StrokeStartLineCap="Round"
@@ -83,8 +77,6 @@
                             </MultiBinding>
                         </Path.Data>
                     </Path>
-                    <!-- Arrowhead: fixed size, does not stretch with the window.
-                         Positioned so its base center meets the tail end. -->
                     <Path Stretch="None"
                           Width="20" Height="16"
                           HorizontalAlignment="Left"
@@ -100,7 +92,6 @@
             <StackPanel Visibility="{Binding HasAnySessions, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
 
-                <!-- Resume section: instruction text above the session-name button -->
                 <TextBlock Text="Resume the previous session" Style="{StaticResource HomePageText}" FontSize="13"
                            Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
                 <Button Style="{StaticResource HomePageButton}"

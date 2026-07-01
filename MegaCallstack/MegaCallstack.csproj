@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Constants.cs" />
     <Compile Include="Logger.cs" />
+    <Compile Include="Models\SolutionInfo.cs" />
     <Compile Include="Models\CallstackFrame.cs" />
     <Compile Include="Models\CallstackData.cs" />
     <Compile Include="Models\CallstackSession.cs" />
@@ -58,7 +59,15 @@
     <Compile Include="Models\TreeViewNode.cs" />
     <Compile Include="Services\IColorPickerService.cs" />
     <Compile Include="Services\INoteEditorService.cs" />
-    <Compile Include="Services\CallstackManager.cs" />
+    <Compile Include="Services\ISolutionInfoProvider.cs" />
+    <Compile Include="Services\SolutionInfoProvider.cs" />
+    <Compile Include="Services\ICallstackCaptureService.cs" />
+    <Compile Include="Services\CallstackCaptureService.cs" />
+    <Compile Include="Services\ICallstackTreeBuilder.cs" />
+    <Compile Include="Services\CallstackTreeBuilder.cs" />
+    <Compile Include="Services\ISessionRepository.cs" />
+    <Compile Include="Services\SessionRepository.cs" />
+    <Compile Include="Services\SolutionWorkspace.cs" />
     <Compile Include="Services\SolutionRootDetector.cs" />
     <Compile Include="Services\FuzzyBookmarkEngine.cs" />
     <Compile Include="Dialogs\ColorPickerDialog.xaml.cs">
@@ -69,7 +78,8 @@
     </Compile>
     <Compile Include="Dialogs\WpfColorPickerService.cs" />
     <Compile Include="Dialogs\WpfNoteEditorService.cs" />
-    <Compile Include="ViewModels\MegaCallstackViewModel.cs" />
+    <Compile Include="ViewModels\RelayCommand.cs" />
+    <Compile Include="ViewModels\SessionViewModel.cs" />
     <Compile Include="Controls\HighlightTextBlock.cs" />
     <Compile Include="Controls\CallstackTreeView.cs" />
     <Compile Include="Controls\CallstackTreeViewItem.cs" />
@@ -77,6 +87,12 @@
     <Compile Include="ToolWindows\MegaCallstackToolWindow.cs" />
     <Compile Include="ToolWindows\MegaCallstackToolWindowControl.xaml.cs">
       <DependentUpon>MegaCallstackToolWindowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ToolWindows\WorkspaceView.xaml.cs">
+      <DependentUpon>WorkspaceView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ToolWindows\EmptyWorkspaceView.xaml.cs">
+      <DependentUpon>EmptyWorkspaceView.xaml</DependentUpon>
     </Compile>
     <Compile Include="ToolWindows\HomePageControl.xaml.cs">
       <DependentUpon>HomePageControl.xaml</DependentUpon>
@@ -86,6 +102,14 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="ToolWindows\MegaCallstackToolWindowControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ToolWindows\WorkspaceView.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ToolWindows\EmptyWorkspaceView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

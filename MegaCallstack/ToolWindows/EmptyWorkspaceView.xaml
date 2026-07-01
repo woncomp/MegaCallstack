@@ -1,4 +1,4 @@
-<UserControl x:Class="MegaCallstack.ToolWindows.MegaCallstackToolWindowControl"
+<UserControl x:Class="MegaCallstack.ToolWindows.EmptyWorkspaceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -7,6 +7,6 @@
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}">
-        <!-- Content is replaced at runtime by EmptyWorkspaceView or WorkspaceView. -->
+        <!-- Intentionally empty. The empty workspace view is a blank background. -->
     </Grid>
 </UserControl>

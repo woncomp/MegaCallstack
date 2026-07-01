@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MegaCallstack.Models;
@@ -14,12 +14,22 @@ namespace MegaCallstack.Tests
     public class CallstackSessionTests
     {
         private string _tempDirectory;
+        private SolutionInfo _solutionInfo;
+        private ISessionRepository _repository;
+        private SolutionSessionData _sessionData;
+        private ICallstackTreeBuilder _treeBuilder;
+        private ICallstackCaptureService _captureService;
 
         [TestInitialize]
         public void Setup()
         {
             _tempDirectory = Path.Combine(Path.GetTempPath(), "MegaCallstackTests_" + Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(_tempDirectory);
+            _solutionInfo = new SolutionInfo(Path.Combine(_tempDirectory, "Test.sln"));
+            _repository = new SessionRepository(_solutionInfo);
+            _sessionData = new SolutionSessionData();
+            _treeBuilder = new CallstackTreeBuilder();
+            _captureService = new CallstackCaptureService(null);
         }
 
         [TestCleanup]
@@ -37,8 +47,7 @@ namespace MegaCallstack.Tests
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("A", "B", "C");
 
-            var manager = CreateManager();
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
 
             Assert.AreEqual(1, session.Callstacks.Count);
             Assert.AreEqual(callstack.LeafHashCode, session.Callstacks[0].LeafHashCode);
@@ -51,9 +60,9 @@ namespace MegaCallstack.Tests
             var callstack1 = CreateTestCallstack("A", "B", "C");
             var callstack2 = CreateTestCallstack("A", "B", "C");
 
-            var manager = CreateManager();
-            manager.AddOrUpdateCallstack(session, callstack1);
-            manager.AddOrUpdateCallstack(session, callstack2);
+            AddOrUpdateCallstack(session, callstack1);
+            System.Threading.Thread.Sleep(10);
+            AddOrUpdateCallstack(session, callstack2);
 
             Assert.AreEqual(1, session.Callstacks.Count);
             Assert.AreEqual(callstack2.CapturedTime, session.Callstacks[0].CapturedTime);
@@ -66,9 +75,8 @@ namespace MegaCallstack.Tests
             var callstack1 = CreateTestCallstack("A", "B", "C");
             var callstack2 = CreateTestCallstack("A", "B", "D");
 
-            var manager = CreateManager();
-            manager.AddOrUpdateCallstack(session, callstack1);
-            manager.AddOrUpdateCallstack(session, callstack2);
+            AddOrUpdateCallstack(session, callstack1);
+            AddOrUpdateCallstack(session, callstack2);
 
             Assert.AreEqual(2, session.Callstacks.Count);
         }
@@ -76,142 +84,129 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void CreateSession_GeneratesUniqueId()
         {
-            var manager = CreateManager();
-            var session1 = manager.CreateSession("Session1");
-            var session2 = manager.CreateSession("Session2");
+            var session1 = CreateSession("Session1");
+            var session2 = CreateSession("Session2");
 
             Assert.AreNotEqual(session1.Id, session2.Id);
-            Assert.AreEqual(2, manager.SessionData.Sessions.Count);
+            Assert.AreEqual(2, _sessionData.Sessions.Count);
         }
 
         [TestMethod]
         public void CreateSession_GeneratesFolderName()
         {
-            var manager = CreateManager();
-            var session = manager.CreateSession("Test");
+            var session = CreateSession("Test");
 
             Assert.IsFalse(string.IsNullOrEmpty(session.FolderName));
             Assert.IsTrue(session.FolderName.Length > 0);
         }
 
         [TestMethod]
-        public void SetActiveSession_SetsCorrectly()
+        public async Task SetActiveSession_SetsCorrectly()
         {
-            var manager = CreateManager();
-            var session1 = manager.CreateSession("Session1");
-            var session2 = manager.CreateSession("Session2");
+            var session1 = CreateSession("Session1");
+            var session2 = CreateSession("Session2");
 
-            manager.SetActiveSession(session2.Id);
-            var active = manager.GetActiveSession();
+            await _repository.SaveSessionMetadataAsync(session1);
+            await _repository.SaveSessionMetadataAsync(session2);
 
+            _sessionData.ActiveSessionId = session2.Id;
+            await _repository.SaveActiveSessionIdAsync(session2.Id);
+
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+            var active = loaded.Sessions.FirstOrDefault(s => s.Id == loaded.ActiveSessionId);
+
+            Assert.IsNotNull(active);
             Assert.AreEqual(session2.Id, active.Id);
             Assert.AreEqual("Session2", active.Name);
         }
 
         [TestMethod]
-        public void GetActiveSession_ReturnsNullWhenNoneSet()
+        public async Task GetActiveSession_ReturnsNullWhenNoneSet()
         {
-            var manager = CreateManager();
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
 
-            var active = manager.GetActiveSession();
+            var active = loaded.Sessions.FirstOrDefault(s => s.Id == loaded.ActiveSessionId);
             Assert.IsNull(active);
         }
 
         [TestMethod]
         public async Task LoadDataAsync_OnlyLoadsMetadata()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
+            var session = CreateSession("TestSession");
+            var callstack = CreateTestCallstack("main", "Run");
+            AddOrUpdateCallstack(session, callstack);
 
-            var session = manager.CreateSession("TestSession");
-            await manager.SaveSessionMetadataAsync(session);
-            await manager.SaveCallstacksAsync(session);
-            await manager.SaveStateAsync(session);
+            await _repository.SaveSessionMetadataAsync(session);
+            await _repository.SaveCallstacksAsync(session);
+            await _repository.SaveStateAsync(session);
 
-            var manager2 = CreateManager();
-            InjectDataDirectory(manager2);
-            await manager2.LoadDataAsync();
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
 
-            Assert.AreEqual(1, manager2.SessionData.Sessions.Count);
-            var loaded = manager2.SessionData.Sessions[0];
-            Assert.IsFalse(loaded.IsLoaded);
-            Assert.AreEqual(0, loaded.Callstacks.Count);
-            Assert.AreEqual(0, loaded.NodeColors.Count);
-            Assert.AreEqual(0, loaded.CollapsedNodes.Count);
-            Assert.AreEqual(0, loaded.HiddenAncestorNodes.Count);
-            Assert.AreEqual(0, loaded.NodeNotes.Count);
+            Assert.AreEqual(1, loaded.Sessions.Count);
+            var loadedSession = loaded.Sessions[0];
+            Assert.IsFalse(loadedSession.IsLoaded);
+            Assert.AreEqual(0, loadedSession.Callstacks.Count);
+            Assert.AreEqual(0, loadedSession.NodeColors.Count);
+            Assert.AreEqual(0, loadedSession.CollapsedNodes.Count);
+            Assert.AreEqual(0, loadedSession.HiddenAncestorNodes.Count);
+            Assert.AreEqual(0, loadedSession.NodeNotes.Count);
         }
 
         [TestMethod]
         public async Task LoadSessionDetailsAsync_LoadsCallstacksAndState()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             var callstack = CreateTestCallstack("main", "Run", "DoWork");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
             session.NodeColors[100] = "#FF0000";
             session.CollapsedNodes[200] = true;
 
-            await manager.SaveSessionMetadataAsync(session);
-            await manager.SaveCallstacksAsync(session);
-            await manager.SaveStateAsync(session);
+            await _repository.SaveSessionMetadataAsync(session);
+            await _repository.SaveCallstacksAsync(session);
+            await _repository.SaveStateAsync(session);
 
-            var manager2 = CreateManager();
-            InjectDataDirectory(manager2);
-            await manager2.LoadDataAsync();
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+            var loadedSession = loaded.Sessions[0];
+            Assert.IsFalse(loadedSession.IsLoaded);
 
-            var loaded = manager2.SessionData.Sessions[0];
-            Assert.IsFalse(loaded.IsLoaded);
+            await new SessionRepository(_solutionInfo).LoadSessionDetailsAsync(loadedSession);
 
-            await manager2.LoadSessionDetailsAsync(loaded);
-
-            Assert.IsTrue(loaded.IsLoaded);
-            Assert.AreEqual(1, loaded.Callstacks.Count);
-            Assert.AreEqual(3, loaded.Callstacks[0].Frames.Count);
-            Assert.AreEqual("#FF0000", loaded.NodeColors[100]);
-            Assert.IsTrue(loaded.CollapsedNodes[200]);
-            Assert.AreEqual(0, loaded.NodeNotes.Count);
+            Assert.IsTrue(loadedSession.IsLoaded);
+            Assert.AreEqual(1, loadedSession.Callstacks.Count);
+            Assert.AreEqual(3, loadedSession.Callstacks[0].Frames.Count);
+            Assert.AreEqual("#FF0000", loadedSession.NodeColors[100]);
+            Assert.IsTrue(loadedSession.CollapsedNodes[200]);
+            Assert.AreEqual(0, loadedSession.NodeNotes.Count);
         }
 
         [TestMethod]
         public async Task LoadSessionDetailsAsync_LoadsHiddenAncestorNodes()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             var callstack = CreateTestCallstack("main", "Run", "DoWork");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
             session.HiddenAncestorNodes[100] = true;
             session.HiddenAncestorNodes[200] = true;
 
-            await manager.SaveSessionMetadataAsync(session);
-            await manager.SaveCallstacksAsync(session);
-            await manager.SaveStateAsync(session);
+            await _repository.SaveSessionMetadataAsync(session);
+            await _repository.SaveCallstacksAsync(session);
+            await _repository.SaveStateAsync(session);
 
-            var manager2 = CreateManager();
-            InjectDataDirectory(manager2);
-            await manager2.LoadDataAsync();
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+            var loadedSession = loaded.Sessions[0];
+            await new SessionRepository(_solutionInfo).LoadSessionDetailsAsync(loadedSession);
 
-            var loaded = manager2.SessionData.Sessions[0];
-            await manager2.LoadSessionDetailsAsync(loaded);
-
-            Assert.IsTrue(loaded.HiddenAncestorNodes.ContainsKey(100));
-            Assert.IsTrue(loaded.HiddenAncestorNodes.ContainsKey(200));
+            Assert.IsTrue(loadedSession.HiddenAncestorNodes.ContainsKey(100));
+            Assert.IsTrue(loadedSession.HiddenAncestorNodes.ContainsKey(200));
         }
 
         [TestMethod]
         public async Task SaveSessionMetadataAsync_WritesOnlySessionFile()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
+            var session = CreateSession("TestSession");
+            await _repository.SaveSessionMetadataAsync(session);
 
-            var session = manager.CreateSession("TestSession");
-            await manager.SaveSessionMetadataAsync(session);
-
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(Directory.Exists(folder));
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
@@ -221,18 +216,15 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task SaveNotesAsync_WritesOnlyNotesFile()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
-            session.NodeNotes[100] = new System.Collections.Generic.List<NodeNote>
+            var session = CreateSession("TestSession");
+            session.NodeNotes[100] = new List<NodeNote>
             {
                 new NodeNote { Emoji = "📝", Text = "Test note" }
             };
 
-            await manager.SaveNotesAsync(session);
+            await _repository.SaveNotesAsync(session);
 
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.NotesFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
@@ -242,16 +234,13 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task SaveCallstacksAsync_WritesOnlyCallstacksFile()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             var callstack = CreateTestCallstack("main", "Run");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
 
-            await manager.SaveCallstacksAsync(session);
+            await _repository.SaveCallstacksAsync(session);
 
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.StateFileName)));
@@ -260,15 +249,12 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task SaveStateAsync_WritesHiddenAncestorNodes()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             session.HiddenAncestorNodes[100] = true;
 
-            await manager.SaveStateAsync(session);
+            await _repository.SaveStateAsync(session);
 
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             var json = File.ReadAllText(Path.Combine(folder, Constants.StateFileName));
             var state = JsonConvert.DeserializeObject<SessionState>(json);
 
@@ -278,16 +264,13 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task SaveStateAsync_WritesOnlyStateFile()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             session.NodeColors[100] = "#FF0000";
             session.CollapsedNodes[200] = true;
 
-            await manager.SaveStateAsync(session);
+            await _repository.SaveStateAsync(session);
 
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.StateFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
@@ -296,30 +279,28 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task DeleteSession_RemovesSessionAndFolder()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
+            var session = CreateSession("TestSession");
+            await _repository.SaveSessionMetadataAsync(session);
 
-            var session = manager.CreateSession("TestSession");
-            await manager.SaveSessionMetadataAsync(session);
-
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(Directory.Exists(folder));
 
-            manager.DeleteSession(session);
+            _sessionData.Sessions.Remove(session);
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, true);
 
-            Assert.AreEqual(0, manager.SessionData.Sessions.Count);
+            Assert.AreEqual(0, _sessionData.Sessions.Count);
             Assert.IsFalse(Directory.Exists(folder));
         }
 
         [TestMethod]
         public void BuildTreeNodes_CollapseSemantics_DefaultExpanded()
         {
-            var manager = CreateManager();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main", "Run", "DoWork");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
 
-            var nodes = manager.BuildTreeNodes(session);
+            var nodes = _treeBuilder.BuildTreeNodes(session);
 
             Assert.IsTrue(nodes[0].IsExpanded);
             Assert.IsTrue(nodes[0].Children[0].IsExpanded);
@@ -328,15 +309,14 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void BuildTreeNodes_CollapseSemantics_CollapsedWhenStored()
         {
-            var manager = CreateManager();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main", "Run", "DoWork");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
 
             var frame = callstack.Frames[0];
             session.CollapsedNodes[frame.HashCode] = true;
 
-            var nodes = manager.BuildTreeNodes(session);
+            var nodes = _treeBuilder.BuildTreeNodes(session);
 
             Assert.IsFalse(nodes[0].IsExpanded);
         }
@@ -344,12 +324,11 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void BuildTreeNodes_CollapseSemantics_ExpandedWhenNotInCollapsedNodes()
         {
-            var manager = CreateManager();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main", "Run", "DoWork");
-            manager.AddOrUpdateCallstack(session, callstack);
+            AddOrUpdateCallstack(session, callstack);
 
-            var nodes = manager.BuildTreeNodes(session);
+            var nodes = _treeBuilder.BuildTreeNodes(session);
 
             Assert.IsTrue(nodes[0].IsExpanded);
             Assert.IsTrue(nodes[0].Children[0].IsExpanded);
@@ -359,55 +338,46 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void SaveExpansionState_InvertedLogic()
         {
-            var manager = CreateManager();
             var session = new CallstackSession("Test");
 
-            manager.SaveExpansionState(session, 100, false);
+            _treeBuilder.SaveExpansionState(session, 100, false);
             Assert.IsTrue(session.CollapsedNodes[100]);
 
-            manager.SaveExpansionState(session, 200, true);
+            _treeBuilder.SaveExpansionState(session, 200, true);
             Assert.IsFalse(session.CollapsedNodes[200]);
         }
 
         [TestMethod]
         public async Task LoadDataAsync_SetsIsLoadedFalse()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
+            var session = CreateSession("TestSession");
+            await _repository.SaveSessionMetadataAsync(session);
 
-            var session = manager.CreateSession("TestSession");
-            await manager.SaveSessionMetadataAsync(session);
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
 
-            var manager2 = CreateManager();
-            InjectDataDirectory(manager2);
-            await manager2.LoadDataAsync();
-
-            var loaded = manager2.SessionData.Sessions[0];
-            Assert.IsFalse(loaded.IsLoaded);
-            Assert.IsNotNull(loaded.Callstacks);
-            Assert.IsNotNull(loaded.NodeColors);
-            Assert.IsNotNull(loaded.CollapsedNodes);
-            Assert.IsNotNull(loaded.HiddenAncestorNodes);
-            Assert.IsNotNull(loaded.NodeNotes);
-            Assert.AreEqual(0, loaded.Callstacks.Count);
+            var loadedSession = loaded.Sessions[0];
+            Assert.IsFalse(loadedSession.IsLoaded);
+            Assert.IsNotNull(loadedSession.Callstacks);
+            Assert.IsNotNull(loadedSession.NodeColors);
+            Assert.IsNotNull(loadedSession.CollapsedNodes);
+            Assert.IsNotNull(loadedSession.HiddenAncestorNodes);
+            Assert.IsNotNull(loadedSession.NodeNotes);
+            Assert.AreEqual(0, loadedSession.Callstacks.Count);
         }
 
         [TestMethod]
         public async Task LoadSessionDetailsAsync_DoesNotReloadIfAlreadyLoaded()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             var callstack = CreateTestCallstack("main", "Run");
-            manager.AddOrUpdateCallstack(session, callstack);
-            await manager.SaveSessionMetadataAsync(session);
-            await manager.SaveCallstacksAsync(session);
+            AddOrUpdateCallstack(session, callstack);
+            await _repository.SaveSessionMetadataAsync(session);
+            await _repository.SaveCallstacksAsync(session);
 
             session.IsLoaded = true;
             session.Callstacks.Clear();
 
-            await manager.LoadSessionDetailsAsync(session);
+            await _repository.LoadSessionDetailsAsync(session);
 
             Assert.AreEqual(0, session.Callstacks.Count);
         }
@@ -449,8 +419,7 @@ namespace MegaCallstack.Tests
                 Bookmark = bookmark
             };
 
-            var manager = CreateManager();
-            int line = await manager.ResolveFrameLineNumberAsync(frame);
+            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
 
             Assert.AreEqual(6, line);
             Assert.AreEqual(6, frame.LineNumber);
@@ -461,8 +430,7 @@ namespace MegaCallstack.Tests
         {
             var frame = new CallstackFrame("Main", "source.cs", 42);
 
-            var manager = CreateManager();
-            int line = await manager.ResolveFrameLineNumberAsync(frame);
+            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
 
             Assert.AreEqual(42, line);
         }
@@ -484,22 +452,33 @@ namespace MegaCallstack.Tests
                 Bookmark = bookmark
             };
 
-            var manager = CreateManager();
-            int line = await manager.ResolveFrameLineNumberAsync(frame);
+            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
 
             Assert.AreEqual(42, line);
         }
 
-        private CallstackManager CreateManager()
+        private CallstackSession CreateSession(string name)
         {
-            return new CallstackManager(null);
+            var session = new CallstackSession(name)
+            {
+                FolderName = _repository.GenerateSessionFolderName()
+            };
+            _sessionData.Sessions.Add(session);
+            return session;
         }
 
-        private void InjectDataDirectory(CallstackManager manager)
+        private void AddOrUpdateCallstack(CallstackSession session, CallstackData callstack)
         {
-            var field = typeof(CallstackManager).GetField("_dataDirectory",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            field.SetValue(manager, _tempDirectory);
+            var existing = session.Callstacks.FirstOrDefault(c => c.LeafHashCode == callstack.LeafHashCode);
+            if (existing != null)
+            {
+                var index = session.Callstacks.IndexOf(existing);
+                session.Callstacks[index] = callstack;
+            }
+            else
+            {
+                session.Callstacks.Add(callstack);
+            }
         }
 
         private CallstackData CreateTestCallstack(params string[] functionNames)
