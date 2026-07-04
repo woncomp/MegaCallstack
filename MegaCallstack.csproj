@@ -59,6 +59,7 @@
     <Compile Include="Services\IColorPickerService.cs" />
     <Compile Include="Services\CallstackManager.cs" />
     <Compile Include="Services\SolutionRootDetector.cs" />
+    <Compile Include="Services\ScopeParser.cs" />
     <Compile Include="Dialogs\ColorPickerDialog.xaml.cs">
       <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
     </Compile>
