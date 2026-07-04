@@ -59,6 +59,29 @@
             </Setter>
         </Style>
 
+        <Style x:Key="HomePageButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="MinWidth" Value="180"/>
+        </Style>
+
+        <Style x:Key="HomePageText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,6"/>
+        </Style>
+
+        <Style x:Key="CurvedArrowPath" TargetType="Path">
+            <Setter Property="Stroke" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="StrokeThickness" Value="6"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="Stretch" Value="Fill"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+
         <Style x:Key="SearchTextBox" TargetType="TextBox">
             <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
             <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
@@ -244,7 +267,7 @@
                 BorderThickness="0,0,0,1">
             <Grid>
                 <!-- Tree View toolbar -->
-                <Grid x:Name="TreeViewToolbar" Margin="2,1" Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}">
+                <Grid x:Name="TreeViewToolbar" Margin="2,1" Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -252,7 +275,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0" Style="{StaticResource ToolbarButton}" Command="{Binding CaptureCommand}"
-                            ToolTip="Capture Callstack" Padding="4,2">
+                            ToolTip="{Binding CaptureButtonTooltip}" ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="0" Padding="4,2">
                         <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.CaptureFrame}" />
                     </Button>
                     <TextBox x:Name="SearchBox" Grid.Column="1" Style="{StaticResource SearchTextBox}"
@@ -270,7 +293,7 @@
                 </Grid>
 
                 <!-- Session View toolbar -->
-                <Grid x:Name="SessionViewToolbar" Margin="2,1" Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
+                <Grid x:Name="SessionViewToolbar" Margin="2,1" Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -288,33 +311,78 @@
         <!-- Middle content -->
         <Grid Grid.Row="1">
             <!-- Tree View content -->
-                <controls:CallstackTreeView x:Name="MainTreeView"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          ItemsSource="{Binding DisplayTreeNodes}"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                          Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}"
-                          TreeViewItem.Selected="TreeView_Selected"
-                          TreeViewItem.PreviewMouseRightButtonDown="TreeViewItem_PreviewMouseRightButtonDown"
-                          TreeViewItem.Collapsed="TreeViewItem_ExpandedCollapsed"
-                          TreeViewItem.Expanded="TreeViewItem_ExpandedCollapsed"
-                          controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
-                          ItemContainerStyle="{StaticResource TreeViewItemStyle}">
-                    <controls:CallstackTreeView.ItemTemplate>
-                        <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                                <controls:HighlightTextBlock Text="{Binding DisplayText}"
-                                                             HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                             HighlightBackground="#FFFFFF00"
-                                                             Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
-                            </StackPanel>
-                        </HierarchicalDataTemplate>
-                    </controls:CallstackTreeView.ItemTemplate>
-                </controls:CallstackTreeView>
+            <controls:CallstackTreeView x:Name="MainTreeView"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      ItemsSource="{Binding DisplayTreeNodes}"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsTreeViewContentVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                      TreeViewItem.Selected="TreeView_Selected"
+                      TreeViewItem.PreviewMouseRightButtonDown="TreeViewItem_PreviewMouseRightButtonDown"
+                      TreeViewItem.Collapsed="TreeViewItem_ExpandedCollapsed"
+                      TreeViewItem.Expanded="TreeViewItem_ExpandedCollapsed"
+                      controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
+                      ItemContainerStyle="{StaticResource TreeViewItemStyle}">
+                <controls:CallstackTreeView.ItemTemplate>
+                    <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
+                            <controls:HighlightTextBlock Text="{Binding DisplayText}"
+                                                         HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                         HighlightBackground="#FFFFFF00"
+                                                         Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                </controls:CallstackTreeView.ItemTemplate>
+            </controls:CallstackTreeView>
+
+            <!-- Home page shown when no active session is available -->
+            <Grid Visibility="{Binding IsHomePageVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
+                    <!-- Curved arrow: occupies left 50% of the parent width.
+                         Tail at bottom-right (horizontal center of treeview area).
+                         Arrowhead at top-left (aligned with the toolbar capture button).
+                         No margin/padding on the arrow element itself. -->
+                    <Grid Height="100">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Path Grid.Column="0" Style="{StaticResource CurvedArrowPath}"
+                              Data="M 0.95 0.95 Q 0.3 0.45 0.15 0.2 L 0.18 0.08 M 0.07 0.14 L 0.15 0.2 L 0.24 0.16"/>
+                    </Grid>
+
+                    <TextBlock Text="Click to capture a callstack" Style="{StaticResource HomePageText}" FontSize="15" FontWeight="SemiBold"/>
+
+                    <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
+
+                    <!-- Resume section: instruction text above the session-name button -->
+                    <TextBlock Text="Resume the previous session" Style="{StaticResource HomePageText}" FontSize="13"
+                               Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
+                    <Button Style="{StaticResource HomePageButton}"
+                            Command="{Binding ActivateSessionCommand}"
+                            CommandParameter="{Binding PreviousSession}"
+                            IsEnabled="{Binding CanResumePreviousSession}"
+                            Content="{Binding PreviousSessionName}"
+                            Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
+
+                    <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
+
+                    <Button Style="{StaticResource HomePageButton}"
+                            Command="{Binding SwitchToSessionViewCommand}"
+                            IsEnabled="{Binding HasAnySessions}"
+                            Content="Browse session history"/>
+                </StackPanel>
+            </Grid>
 
             <!-- Session View content -->
-            <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}">
+            <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -345,7 +413,7 @@
 
                 <!-- Delete button panel -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="4,0,0,0"
-                            Visibility="{Binding SelectedSession, Converter={StaticResource BoolToVis}}">
+                            Visibility="{Binding SelectedSession, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
                     <Button Style="{StaticResource ToolbarButton}" Padding="4,2"
                             Click="DeleteSelectedSession_Click"
                             ToolTip="Delete selected session">
@@ -380,10 +448,10 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Content="Sessions" Style="{StaticResource ToolbarButton}"
                             Command="{Binding SwitchToSessionViewCommand}"
-                            Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}}"/>
+                            Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
                     <Button Content="Trees" Style="{StaticResource ToolbarButton}"
                             Command="{Binding SwitchToTreeViewCommand}"
-                            Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}}"/>
+                            Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
                 </StackPanel>
             </Grid>
         </Border>
