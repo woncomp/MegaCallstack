@@ -15,6 +15,7 @@ namespace MegaCallstack.ViewModels
     public class MegaCallstackViewModel : INotifyPropertyChanged
     {
         private readonly CallstackManager _manager;
+        private readonly IColorPickerService _colorPickerService;
 
         private ObservableCollection<TreeViewNode> _treeNodes = new ObservableCollection<TreeViewNode>();
         private ObservableCollection<TreeViewNode> _displayTreeNodes = new ObservableCollection<TreeViewNode>();
@@ -37,9 +38,10 @@ namespace MegaCallstack.ViewModels
         public event Action<string, int> NavigateToFile;
         public event Action TreeUpdated;
 
-        public MegaCallstackViewModel(CallstackManager manager)
+        public MegaCallstackViewModel(CallstackManager manager, IColorPickerService colorPickerService)
         {
             _manager = manager;
+            _colorPickerService = colorPickerService;
 
             CaptureCommand = new RelayCommand(ExecuteCapture, CanCapture);
             SearchCommand = new RelayCommand(ExecuteSearch);
@@ -48,7 +50,7 @@ namespace MegaCallstack.ViewModels
             DoubleClickNodeCommand = new RelayCommand(ExecuteDoubleClickNode);
             JumpToCallerCommand = new RelayCommand(ExecuteJumpToCaller, CanJumpToCaller);
             JumpToFrameCommand = new RelayCommand(ExecuteJumpToFrame, CanJumpToFrame);
-            SetColorCommand = new RelayCommand<string>(ExecuteSetColor);
+            SetColorCommand = new RelayCommand(ExecuteSetColor);
             ClearColorCommand = new RelayCommand(ExecuteClearColor);
             ToggleAncestorsCommand = new RelayCommand(ExecuteToggleAncestors, CanToggleAncestors);
             SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
@@ -417,12 +419,33 @@ namespace MegaCallstack.ViewModels
             }
         }
 
-        private void ExecuteSetColor(string hexColor)
+        private void ExecuteSetColor()
         {
             if (SelectedNode == null || _activeSession == null)
                 return;
 
-            var color = (Color)ColorConverter.ConvertFromString(hexColor);
+            Color? initialColor = null;
+            if (SelectedNode.DisplayBackground is SolidColorBrush solidBrush)
+            {
+                initialColor = solidBrush.Color;
+            }
+
+            var result = _colorPickerService.PickColor(initialColor);
+
+            if (result.Result == ColorPickerResult.Cancel)
+                return;
+
+            if (result.Result == ColorPickerResult.Clear)
+            {
+                ExecuteClearColor();
+                return;
+            }
+
+            if (!result.Color.HasValue)
+                return;
+
+            var color = result.Color.Value;
+            var hexColor = $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
             var brush = new SolidColorBrush(color);
 
             SelectedNode.SetColorAndPropagate(brush);

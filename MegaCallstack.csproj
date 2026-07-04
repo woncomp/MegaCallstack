@@ -56,8 +56,13 @@
     <Compile Include="Models\HashUtils.cs" />
     <Compile Include="Models\SolutionSessionData.cs" />
     <Compile Include="Models\TreeViewNode.cs" />
+    <Compile Include="Services\IColorPickerService.cs" />
     <Compile Include="Services\CallstackManager.cs" />
     <Compile Include="Services\SolutionRootDetector.cs" />
+    <Compile Include="Dialogs\ColorPickerDialog.xaml.cs">
+      <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\WpfColorPickerService.cs" />
     <Compile Include="ViewModels\MegaCallstackViewModel.cs" />
     <Compile Include="Controls\HighlightTextBlock.cs" />
     <Compile Include="Controls\CallstackTreeView.cs" />
@@ -74,6 +79,10 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="ToolWindows\MegaCallstackToolWindowControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\ColorPickerDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

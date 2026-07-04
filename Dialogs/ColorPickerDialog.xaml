@@ -1,0 +1,332 @@
+<Window x:Class="MegaCallstack.Dialogs.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+        mc:Ignorable="d"
+        Title="Choose Color"
+        ResizeMode="NoResize"
+        Width="301"
+        Height="204"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Window.Resources>
+        <Style x:Key="PresetButton" TargetType="Button">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Width="{TemplateBinding Width}"
+                                Height="{TemplateBinding Height}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                                <Setter TargetName="Border" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DialogButton" TargetType="Button">
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style x:Key="SliderLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+
+        <Style x:Key="NumericTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
+            BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+            BorderThickness="1"
+            Padding="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="6"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="6"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        x:Name="ColorAreaBorder"
+                        Width="90"
+                        Height="90"
+                        BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True"
+                        Cursor="Cross">
+                    <Canvas x:Name="ColorArea"
+                            Background="Transparent"
+                            MouseLeftButtonDown="ColorArea_MouseLeftButtonDown"
+                            MouseMove="ColorArea_MouseMove"
+                            MouseLeftButtonUp="ColorArea_MouseLeftButtonUp">
+                        <Rectangle x:Name="ColorAreaBase"
+                                Width="{Binding ActualWidth, ElementName=ColorArea}"
+                                Height="{Binding ActualHeight, ElementName=ColorArea}"
+                                Fill="Red"
+                                IsHitTestVisible="False"/>
+                        <Rectangle Width="{Binding ActualWidth, ElementName=ColorArea}"
+                                Height="{Binding ActualHeight, ElementName=ColorArea}"
+                                IsHitTestVisible="False">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Offset="0" Color="White"/>
+                                    <GradientStop Offset="1" Color="Transparent"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+                        <Rectangle Width="{Binding ActualWidth, ElementName=ColorArea}"
+                                Height="{Binding ActualHeight, ElementName=ColorArea}"
+                                IsHitTestVisible="False">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Offset="0" Color="Transparent"/>
+                                    <GradientStop Offset="1" Color="Black"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+
+                        <Canvas x:Name="ColorCursor" Width="11" Height="11" IsHitTestVisible="False">
+                            <Path Data="M5,0 L6,0 L6,5 L11,5 L11,6 L6,6 L6,11 L5,11 L5,6 L0,6 L0,5 L5,5 Z"
+                                    Fill="White"
+                                    Stroke="Black"
+                                    StrokeThickness="1"
+                                    SnapsToDevicePixels="True"/>
+                        </Canvas>
+                    </Canvas>
+                </Border>
+
+                <Border Grid.Column="2"
+                        x:Name="HueSliderBorder"
+                        Width="18"
+                        Height="90"
+                        BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+                        BorderThickness="1"
+                        SnapsToDevicePixels="True">
+                    <Canvas x:Name="HueSlider"
+                            Background="Transparent"
+                            MouseLeftButtonDown="HueSlider_MouseLeftButtonDown"
+                            MouseMove="HueSlider_MouseMove"
+                            MouseLeftButtonUp="HueSlider_MouseLeftButtonUp">
+                        <Rectangle x:Name="HueSliderFill"
+                                Width="{Binding ActualWidth, ElementName=HueSlider}"
+                                Height="{Binding ActualHeight, ElementName=HueSlider}">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Offset="0" Color="#FFFF0000"/>
+                                    <GradientStop Offset="0.167" Color="#FFFFFF00"/>
+                                    <GradientStop Offset="0.333" Color="#FF00FF00"/>
+                                    <GradientStop Offset="0.5" Color="#FF00FFFF"/>
+                                    <GradientStop Offset="0.667" Color="#FF0000FF"/>
+                                    <GradientStop Offset="0.833" Color="#FFFF00FF"/>
+                                    <GradientStop Offset="1" Color="#FFFF0000"/>
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                        </Rectangle>
+
+                        <Rectangle x:Name="HueCursor"
+                                Width="{Binding ActualWidth, ElementName=HueSlider}"
+                                Height="3"
+                                Fill="White"
+                                Stroke="Black"
+                                StrokeThickness="1"
+                                IsHitTestVisible="False">
+                        </Rectangle>
+                    </Canvas>
+                </Border>
+
+                <Grid Grid.Column="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="R" Style="{StaticResource SliderLabel}"/>
+                        <Slider Grid.Column="1" x:Name="RedSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True"
+                                Margin="3,0" VerticalAlignment="Center" ValueChanged="Slider_ValueChanged"/>
+                        <TextBox Grid.Column="2" x:Name="RedText" Style="{StaticResource NumericTextBox}" TextChanged="NumericText_TextChanged"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="0,0,0,3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="G" Style="{StaticResource SliderLabel}"/>
+                        <Slider Grid.Column="1" x:Name="GreenSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True"
+                                Margin="3,0" VerticalAlignment="Center" ValueChanged="Slider_ValueChanged"/>
+                        <TextBox Grid.Column="2" x:Name="GreenText" Style="{StaticResource NumericTextBox}" TextChanged="NumericText_TextChanged"/>
+                    </Grid>
+
+                    <Grid Grid.Row="2" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="B" Style="{StaticResource SliderLabel}"/>
+                        <Slider Grid.Column="1" x:Name="BlueSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True"
+                                Margin="3,0" VerticalAlignment="Center" ValueChanged="Slider_ValueChanged"/>
+                        <TextBox Grid.Column="2" x:Name="BlueText" Style="{StaticResource NumericTextBox}" TextChanged="NumericText_TextChanged"/>
+                    </Grid>
+
+                    <Grid Grid.Row="3" Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Hex"
+                                   Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,4,0"
+                                   FontSize="11"/>
+                        <TextBox Grid.Column="1" x:Name="HexText"
+                                 Style="{StaticResource NumericTextBox}"
+                                 Width="Auto"
+                                 HorizontalAlignment="Stretch"
+                                 TextChanged="HexText_TextChanged"/>
+                        <Border Grid.Column="2"
+                                x:Name="PreviewBorder"
+                                Width="22"
+                                Height="20"
+                                Margin="4,0,0,0"
+                                BorderBrush="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"
+                                BorderThickness="1"
+                                Background="Transparent"
+                                SnapsToDevicePixels="True">
+                            <Rectangle>
+                                <Rectangle.Fill>
+                                    <DrawingBrush TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute">
+                                        <DrawingBrush.Drawing>
+                                            <DrawingGroup>
+                                                <GeometryDrawing>
+                                                    <GeometryDrawing.Geometry>
+                                                        <RectangleGeometry Rect="0,0,8,8"/>
+                                                    </GeometryDrawing.Geometry>
+                                                    <GeometryDrawing.Brush>
+                                                        <SolidColorBrush Color="Gray" Opacity="0.2"/>
+                                                    </GeometryDrawing.Brush>
+                                                </GeometryDrawing>
+                                                <GeometryDrawing>
+                                                    <GeometryDrawing.Geometry>
+                                                        <RectangleGeometry Rect="8,0,8,8"/>
+                                                    </GeometryDrawing.Geometry>
+                                                    <GeometryDrawing.Brush>
+                                                        <SolidColorBrush Color="Gray" Opacity="0.2"/>
+                                                    </GeometryDrawing.Brush>
+                                                </GeometryDrawing>
+                                                <GeometryDrawing>
+                                                    <GeometryDrawing.Geometry>
+                                                        <RectangleGeometry Rect="0,8,8,8"/>
+                                                    </GeometryDrawing.Geometry>
+                                                    <GeometryDrawing.Brush>
+                                                        <SolidColorBrush Color="Gray" Opacity="0.2"/>
+                                                    </GeometryDrawing.Brush>
+                                                </GeometryDrawing>
+                                                <GeometryDrawing>
+                                                    <GeometryDrawing.Geometry>
+                                                        <RectangleGeometry Rect="8,8,8,8"/>
+                                                    </GeometryDrawing.Geometry>
+                                                    <GeometryDrawing.Brush>
+                                                        <SolidColorBrush Color="Gray" Opacity="0.2"/>
+                                                    </GeometryDrawing.Brush>
+                                                </GeometryDrawing>
+                                            </DrawingGroup>
+                                        </DrawingBrush.Drawing>
+                                    </DrawingBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <UniformGrid Grid.Row="2" Columns="14" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <Button Style="{StaticResource PresetButton}" Background="#FFE74856" Click="Preset_Click" Tag="#FFE74856" ToolTip="Red"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF3DC46D" Click="Preset_Click" Tag="#FF3DC46D" ToolTip="Green"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF3B99E4" Click="Preset_Click" Tag="#FF3B99E4" ToolTip="Blue"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FFD69E3E" Click="Preset_Click" Tag="#FFD69E3E" ToolTip="Orange"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FFB062D1" Click="Preset_Click" Tag="#FFB062D1" ToolTip="Purple"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF5AC8FA" Click="Preset_Click" Tag="#FF5AC8FA" ToolTip="Cyan"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FFFF6B6B" Click="Preset_Click" Tag="#FFFF6B6B" ToolTip="Pink"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF9B59B6" Click="Preset_Click" Tag="#FF9B59B6" ToolTip="Magenta"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF2ECC71" Click="Preset_Click" Tag="#FF2ECC71" ToolTip="Lime"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF34495E" Click="Preset_Click" Tag="#FF34495E" ToolTip="Dark Blue"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF95A5A6" Click="Preset_Click" Tag="#FF95A5A6" ToolTip="Gray"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FFE67E22" Click="Preset_Click" Tag="#FFE67E22" ToolTip="Dark Orange"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FF1ABC9C" Click="Preset_Click" Tag="#FF1ABC9C" ToolTip="Teal"/>
+                <Button Style="{StaticResource PresetButton}" Background="#FFF1C40F" Click="Preset_Click" Tag="#FFF1C40F" ToolTip="Yellow"/>
+            </UniformGrid>
+
+            <Grid Grid.Row="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="Clear Color" Style="{StaticResource DialogButton}" Click="ClearColor_Click"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="OK" Style="{StaticResource DialogButton}" IsDefault="True" Click="OK_Click"/>
+                    <Button Content="Cancel" Style="{StaticResource DialogButton}" IsCancel="True" Click="Cancel_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
