@@ -61,9 +61,10 @@
 
         <Style x:Key="HomePageButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
             <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Margin" Value="10,4"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="MinWidth" Value="180"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MaxWidth" Value="400"/>
         </Style>
 
         <Style x:Key="HomePageText" TargetType="TextBlock">
@@ -338,13 +339,7 @@
 
             <!-- Home page shown when no active session is available -->
             <Grid Visibility="{Binding IsHomePageVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
+                <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
                     <!-- Curved arrow: occupies left 50% of the parent width.
                          Tail at bottom-right (horizontal center of treeview area).
                          Arrowhead at top-left (aligned with the toolbar capture button).
@@ -355,7 +350,7 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <Path Grid.Column="0" Style="{StaticResource CurvedArrowPath}"
-                              Data="M 0.95 0.95 Q 0.3 0.45 0.15 0.2 L 0.18 0.08 M 0.07 0.14 L 0.15 0.2 L 0.24 0.16"/>
+                              Data="M 0.95 0.95 Q 0.3 0.45 0.15 0.2 L 0.18 0.08 M 0.07 0.14 L 0.18 0.08 L 0.24 0.16"/>
                     </Grid>
 
                     <TextBlock Text="Click to capture a callstack" Style="{StaticResource HomePageText}" FontSize="15" FontWeight="SemiBold"/>
