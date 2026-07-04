@@ -3,11 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
-             mc:Ignorable="d"
+              xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+              xmlns:local="clr-namespace:MegaCallstack.ToolWindows"
+              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:ArrowTailGeometryConverter x:Key="ArrowTailGeometryConverter"/>
+        <local:DoubleToGridLengthConverter x:Key="DoubleToGridLengthConverter"/>
 
         <Style x:Key="HomePageButton" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
@@ -52,45 +55,47 @@
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,6"/>
         </Style>
-
-        <Style x:Key="CurvedArrowPath" TargetType="Path">
-            <Setter Property="Stretch" Value="Fill"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="VerticalAlignment" Value="Stretch"/>
-        </Style>
     </UserControl.Resources>
 
     <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}">
         <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0">
-            <!-- Curved arrow: occupies left 50% of the parent width.
-                 Tail at bottom-right (horizontal center of treeview area).
-                 Arrowhead at top-left (aligned with the toolbar capture button).
-                 No margin/padding on the arrow element itself. -->
-            <Grid Height="100">
+            <!-- Curved arrow: occupies the space to the left of the title text.
+                 The center column matches the title text width, so the arrow tail
+                 ends at the horizontal position where the title text begins.
+                 Arrowhead at top-left of the left cell. -->
+            <Grid Height="108">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="{Binding ActualWidth, ElementName=TitleText, Converter={StaticResource DoubleToGridLengthConverter}}"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <!-- Tail curve: stretches with the column width. -->
-                <Path Grid.Column="0" Style="{StaticResource CurvedArrowPath}"
-                      Stroke="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                      StrokeThickness="6"
-                      StrokeStartLineCap="Round"
-                      StrokeEndLineCap="Round"
-                      Data="M 0 0 M 1 1 C 0.5 1, 0.06 0.5, 0.06 0.15"/>
-                <!-- Arrowhead: fixed size, does not stretch with the window.
-                     Positioned so its base center meets the tail end. -->
-                <Path Grid.Column="0"
-                      Stretch="None"
-                      Width="20" Height="16"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Top"
-                      Margin="2,-1,0,0"
-                      Fill="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                      Data="M 0 16 L 10 0 L 20 16 Z"/>
+                <!-- Arrow container: the tail stretches to its size while the arrowhead stays fixed. -->
+                <Grid x:Name="ArrowContainer" Grid.Column="0">
+                    <!-- Tail curve: generated in absolute coordinates based on container size. -->
+                    <Path Stroke="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                          StrokeThickness="6"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round">
+                        <Path.Data>
+                            <MultiBinding Converter="{StaticResource ArrowTailGeometryConverter}">
+                                <Binding Path="ActualWidth" ElementName="ArrowContainer"/>
+                                <Binding Path="ActualHeight" ElementName="ArrowContainer"/>
+                            </MultiBinding>
+                        </Path.Data>
+                    </Path>
+                    <!-- Arrowhead: fixed size, does not stretch with the window.
+                         Positioned so its base center meets the tail end. -->
+                    <Path Stretch="None"
+                          Width="20" Height="16"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top"
+                          Margin="7,-1,0,0"
+                          Fill="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                          Data="M 0 16 L 10 0 L 20 16 Z"/>
+                </Grid>
             </Grid>
 
-            <TextBlock Text="Click to capture a callstack" Style="{StaticResource HomePageText}" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock x:Name="TitleText" Text="Click to capture a callstack" Style="{StaticResource HomePageText}" FontSize="15" FontWeight="SemiBold" Margin="0,-2,0,6"/>
 
             <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
 
