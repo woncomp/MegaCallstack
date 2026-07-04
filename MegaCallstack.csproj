@@ -66,11 +66,18 @@
     <Compile Include="ToolWindows\MegaCallstackToolWindowControl.xaml.cs">
       <DependentUpon>MegaCallstackToolWindowControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ToolWindows\HomePageControl.xaml.cs">
+      <DependentUpon>HomePageControl.xaml</DependentUpon>
+    </Compile>
     <Compile Include="MegaCallstackPackage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="ToolWindows\MegaCallstackToolWindowControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ToolWindows\HomePageControl.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
