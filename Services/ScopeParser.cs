@@ -14,6 +14,7 @@ namespace MegaCallstack.Services
         public int IndentLevel { get; set; }
         public List<ScopeNode> Children { get; set; } = new List<ScopeNode>();
         public ScopeNode Parent { get; set; }
+        public float Rank { get; set; }
 
         public ScopeNode() { }
 
@@ -46,7 +47,11 @@ namespace MegaCallstack.Services
             "if", "for", "while", "switch", "catch", "sizeof", "typeof"
         };
 
+        private string[] _lines;
+
         public ScopeNode Parse(string[] lines)
+        {
+            _lines = lines;
         {
             if (lines == null || lines.Length == 0)
             {
@@ -130,6 +135,7 @@ namespace MegaCallstack.Services
             }
 
             TileGaps(root, lines.Length - 1);
+            ComputeRanks(root);
 
             return root;
         }
@@ -190,14 +196,46 @@ namespace MegaCallstack.Services
 
         private ScopeNode CreateFiller(int start, int end, string fillerType)
         {
+            var contentType = AnalyzeFillerContent(start, end);
             return new ScopeNode
             {
-                Name = $"{fillerType}_{start}_{end}",
+                Name = $"{fillerType}_{contentType}",
                 Type = "Filler",
                 StartLine = start,
                 EndLine = end,
                 IndentLevel = -1
             };
+        }
+
+        private string AnalyzeFillerContent(int start, int end)
+        {
+            int commentCount = 0, includeCount = 0, preprocessorCount = 0, variableCount = 0, codeCount = 0;
+
+            for (int i = start; i <= end && i < (_lines?.Length ?? 0); i++)
+            {
+                var line = _lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("#include"))
+                    includeCount++;
+                else if (trimmed.StartsWith("#"))
+                    preprocessorCount++;
+                else if (trimmed.StartsWith("//") || trimmed.StartsWith("/*") || trimmed.StartsWith("*"))
+                    commentCount++;
+                else if (trimmed.Contains(";"))
+                    variableCount++;
+                else
+                    codeCount++;
+            }
+
+            int max = Math.Max(Math.Max(commentCount, includeCount), Math.Max(Math.Max(preprocessorCount, variableCount), codeCount));
+            if (codeCount == max) return "Code";
+            if (includeCount == max) return "Includes";
+            if (variableCount == max) return "Variables";
+            if (preprocessorCount == max) return "Preprocessor";
+            if (commentCount == max) return "Comments";
+            return "Code";
         }
 
         private PendingAnchor DetectAnchor(string line, int lineIdx, int indent)
@@ -255,6 +293,44 @@ namespace MegaCallstack.Services
             return trimmed.StartsWith("//")
                 || trimmed.StartsWith("/*")
                 || trimmed.StartsWith("*");
+        }
+
+        private void ComputeRanks(ScopeNode root)
+        {
+            var allNodes = new List<ScopeNode>();
+            CollectAllNodes(root, allNodes);
+
+            var groups = allNodes.GroupBy(n => n.Name);
+            foreach (var group in groups)
+            {
+                var nodes = group.ToList();
+                if (nodes.Count == 1)
+                {
+                    nodes[0].Rank = 0f;
+                    continue;
+                }
+
+                int minLineCount = nodes.Min(n => n.EndLine - n.StartLine + 1);
+                var adjustedCounts = nodes.Select(n => (float)(n.EndLine - n.StartLine + 1 - minLineCount)).ToList();
+                float maxAdjusted = adjustedCounts.Max();
+                if (maxAdjusted > 0)
+                {
+                    for (int i = 0; i < nodes.Count; i++)
+                        nodes[i].Rank = adjustedCounts[i] / maxAdjusted;
+                }
+                else
+                {
+                    foreach (var n in nodes)
+                        n.Rank = 0f;
+                }
+            }
+        }
+
+        private void CollectAllNodes(ScopeNode node, List<ScopeNode> result)
+        {
+            result.Add(node);
+            foreach (var child in node.Children)
+                CollectAllNodes(child, result);
         }
 
         public void PrintTree(ScopeNode node, int depth = 0)
