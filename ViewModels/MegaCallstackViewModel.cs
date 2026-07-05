@@ -206,10 +206,30 @@ namespace MegaCallstack.ViewModels
         public ICommand DeleteSessionCommand { get; }
         public ICommand DeleteSelectedSessionCommand { get; }
 
-        public void LoadData()
+        public async Task LoadDataAsync()
         {
-            _activeSession = null;
-            ActiveSessionName = string.Empty;
+            var activeId = _manager.SessionData.ActiveSessionId;
+            if (!string.IsNullOrEmpty(activeId))
+            {
+                var activeSession = _manager.SessionData.Sessions.FirstOrDefault(s => s.Id == activeId);
+                if (activeSession != null)
+                {
+                    _activeSession = activeSession;
+                    ActiveSessionName = activeSession.Name;
+                    await EnsureSessionLoadedAsync(activeSession);
+                }
+                else
+                {
+                    _activeSession = null;
+                    ActiveSessionName = string.Empty;
+                }
+            }
+            else
+            {
+                _activeSession = null;
+                ActiveSessionName = string.Empty;
+            }
+
             NotifyHomePageProperties();
             RefreshTreeNodes();
             RefreshSessionsList();
