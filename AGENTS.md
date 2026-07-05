@@ -139,6 +139,16 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
 ## 10. Versioning
 
 - **Each time you make any change, bump the lowest version segment by 1.** Update both `Properties/AssemblyInfo.cs` (`AssemblyVersion` and `AssemblyFileVersion`) and `source.extension.vsixmanifest` (the `Version` attribute in the `Identity` element). Keep them in sync.
+- **When the user requests a release, reset the build (tail) version to 0 and bump the version based on which version component the user requested:**
+  - **major**: first component (e.g., `X.y.z.w` -> `(X+1).0.0.0`)
+  - **minor**: second component (e.g., `x.Y.z.w` -> `x.(Y+1).0.0`)
+  - **patch**: third component (e.g., `x.y.Z.w` -> `x.y.(Z+1).0`)
+  - If the user did not mention the component, bump the **patch** version.
+- **Release process workflow:**
+  1. Stage the changed files.
+  2. Ask the user to review before committing.
+  3. After the user approves, commit it, push to `origin`, create a tag for this new version (e.g., `vX.Y.Z.0`), and push the tag to `origin` to trigger the release workflow.
+
 
 ## 11. Branch Merging Guidelines
 When merging changes from an agent-created branch or worktree back into `main`, adhere to these workflows:
