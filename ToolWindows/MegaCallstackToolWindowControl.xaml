@@ -86,8 +86,12 @@
                         <Separator/>
                         <MenuItem Header="Set Color..." Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
-                        <MenuItem Header="{Binding PlacementTarget.Tag.AncestorsMenuHeader, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                  Command="{Binding PlacementTarget.Tag.ToggleAncestorsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Show Ancestors"
+                                  Command="{Binding PlacementTarget.Tag.ToggleAncestorsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Visibility="{Binding PlacementTarget.Tag.IsSelectedNodeDisplayRoot, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource BoolToVis}}"/>
+                        <MenuItem Header="Hide Ancestors"
+                                  Command="{Binding PlacementTarget.Tag.ToggleAncestorsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Visibility="{Binding PlacementTarget.Tag.IsSelectedNodeDisplayRoot, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource InverseBoolToVis}}"/>
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
@@ -295,14 +299,18 @@
                       controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
                       ItemContainerStyle="{StaticResource TreeViewItemStyle}">
                 <controls:CallstackTreeView.ItemTemplate>
-                    <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
-                            <controls:HighlightTextBlock Text="{Binding DisplayText}"
-                                                         HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                         HighlightBackground="#FFFFFF00"
-                                                         Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
+                   <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
+                       <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">
+                            <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.ShowParentNodeOnly}"
+                                              Width="16" Height="16"
+                                              Margin="0,0,4,0"
+                                              Visibility="{Binding IsDisplayRoot, Converter={StaticResource BoolToVis}}"/>
+                           <controls:HighlightTextBlock Text="{Binding DisplayText}"
+                                                        HighlightText="{Binding DataContext.SearchText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        HighlightBackground="#FFFFFF00"
+                                                        Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+                       </StackPanel>
+                   </HierarchicalDataTemplate>
                 </controls:CallstackTreeView.ItemTemplate>
             </controls:CallstackTreeView>
 
