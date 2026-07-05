@@ -139,3 +139,8 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
 ## 10. Versioning
 
 - **Each time you make any change, bump the lowest version segment by 1.** Update both `Properties/AssemblyInfo.cs` (`AssemblyVersion` and `AssemblyFileVersion`) and `source.extension.vsixmanifest` (the `Version` attribute in the `Identity` element). Keep them in sync.
+
+## 11. Branch Merging Guidelines
+When merging changes from an agent-created branch or worktree back into `main`, adhere to these workflows:
+  - By default, use **Rebase + Fast-Forward** merging to maintain a clean, linear commit history on `main` without creating merge commits. First, rebase the branch onto `main` (`git rebase main`), then checkout `main` and fast-forward merge the branch (`git merge <branch>`).
+  - If the user explicitly requests a squash, use **Squash Merge** (`git merge --squash <branch>`). In this case, the agent must compose a clean, descriptive summary of the changes to be used as the commit message.
