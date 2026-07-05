@@ -6,6 +6,7 @@ This guide is written for agents (and developers) who need to ramp up on the Meg
 
 - **All code and documentation must be written in English.** This includes code comments, commit messages, doc files, and any text the agent produces.
 - **Do not commit unless the user explicitly asks.** Even when the user explicitly requests a commit, that request applies only to the current conversation turn. Never treat commit as a default action after making changes.
+- **Never leave "Merge branch" commits in main** Follow Branch Merging Guidelines, use **Rebase + Fast-Forward** approach whenever not requesting a squash merge.
 
 ## 1. What This Extension Does
 
@@ -145,6 +146,8 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
   - **patch**: third component (e.g., `x.y.Z.w` -> `x.y.(Z+1).0`)
   - If the user did not mention the component, bump the **patch** version.
 - **Release process workflow:**
+  > [!IMPORTANT]
+  > A request to commit changes (e.g., "commit your changes") is just a normal code commit. It does NOT mean the user wants a release. The release workflow (pushing to origin, tagging, etc.) should only be triggered if the user explicitly requests a **release** (e.g., "please release this version").
   1. Stage the changed files.
   2. Ask the user to review before committing.
   3. After the user approves, commit it, push to `origin`, create a tag for this new version (e.g., `vX.Y.Z.0`), and push the tag to `origin` to trigger the release workflow.
