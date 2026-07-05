@@ -75,6 +75,14 @@ namespace MegaCallstack.Models
 
         public ObservableCollection<TreeViewNode> Children { get; } = new ObservableCollection<TreeViewNode>();
 
+        private bool _isDisplayRoot;
+
+        public bool IsDisplayRoot
+        {
+            get => _isDisplayRoot;
+            set { _isDisplayRoot = value; OnPropertyChanged(); }
+        }
+
         public TreeViewNode()
         {
             Children.CollectionChanged += (s, e) =>

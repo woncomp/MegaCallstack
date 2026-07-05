@@ -1132,13 +1132,18 @@ namespace MegaCallstack.Services
             if (node == null || session == null)
                 return false;
 
-            foreach (var ancestor in node.GetAncestors())
-            {
-                if (session.HiddenAncestorNodes.ContainsKey(ancestor.Frame?.HashCode ?? 0))
-                    return true;
-            }
+            // A node is a temporary display root only when its immediate parent
+            // is hidden and that parent is unbranched. A branched hidden parent
+            // is still shown in the display tree, so its children are not roots.
+            var parent = node.Parent;
+            if (parent == null)
+                return false;
 
-            return false;
+            var parentHashCode = parent.Frame?.HashCode ?? 0;
+            if (parentHashCode == 0 || !session.HiddenAncestorNodes.ContainsKey(parentHashCode))
+                return false;
+
+            return parent.Children.Count <= 1;
         }
 
         public void SetHiddenAncestors(CallstackSession session, TreeViewNode node)
@@ -1178,6 +1183,11 @@ namespace MegaCallstack.Services
             foreach (var root in fullTree)
             {
                 displayRoots.AddRange(GetVisibleRoots(session, root));
+            }
+
+            foreach (var node in displayRoots)
+            {
+                node.IsDisplayRoot = IsDisplayRoot(node, session);
             }
 
             return displayRoots;
