@@ -1,6 +1,8 @@
 using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MegaCallstack.Models;
+using MegaCallstack.Services;
+using Newtonsoft.Json;
 
 namespace MegaCallstack.Tests
 {
@@ -90,6 +92,54 @@ namespace MegaCallstack.Tests
             var frame = new CallstackFrame("MyFunc", "MyFile.cs", 42);
 
             Assert.IsNull(frame.LineContent);
+        }
+
+        [TestMethod]
+        public void Bookmark_CanBeSetAndRetrieved()
+        {
+            var frame = new CallstackFrame("MyFunc", "MyFile.cs", 42)
+            {
+                Bookmark = new FuzzyBookmark { LineContent = "var x = 1;", LineHash = 123 }
+            };
+
+            Assert.IsNotNull(frame.Bookmark);
+            Assert.AreEqual("var x = 1;", frame.Bookmark.LineContent);
+        }
+
+        [TestMethod]
+        public void Bookmark_DefaultsToNull()
+        {
+            var frame = new CallstackFrame("MyFunc", "MyFile.cs", 42);
+
+            Assert.IsNull(frame.Bookmark);
+        }
+
+        [TestMethod]
+        public void JsonRoundTrip_PreservesBookmark()
+        {
+            var frame = new CallstackFrame("MyFunc", "MyFile.cs", 42)
+            {
+                Bookmark = new FuzzyBookmark
+                {
+                    LineContent = "var x = 1;",
+                    LineHash = FuzzyBookmarkEngine.FNV1a(0, "var x = 1;"),
+                    ScopePath = new uint[] { 0x12345678 },
+                    Ratio = 0.5,
+                    PreContextHashes = new int[] { 1, 2 },
+                    PostContextHashes = new int[] { 3, 4 }
+                }
+            };
+
+            var json = JsonConvert.SerializeObject(frame);
+            var roundTripped = JsonConvert.DeserializeObject<CallstackFrame>(json);
+
+            Assert.IsNotNull(roundTripped.Bookmark);
+            Assert.AreEqual(frame.Bookmark.LineContent, roundTripped.Bookmark.LineContent);
+            Assert.AreEqual(frame.Bookmark.LineHash, roundTripped.Bookmark.LineHash);
+            CollectionAssert.AreEqual(frame.Bookmark.ScopePath, roundTripped.Bookmark.ScopePath);
+            Assert.AreEqual(frame.Bookmark.Ratio, roundTripped.Bookmark.Ratio, 0.0001);
+            CollectionAssert.AreEqual(frame.Bookmark.PreContextHashes, roundTripped.Bookmark.PreContextHashes);
+            CollectionAssert.AreEqual(frame.Bookmark.PostContextHashes, roundTripped.Bookmark.PostContextHashes);
         }
     }
 }
