@@ -25,6 +25,7 @@ namespace MegaCallstack.Models
         public CallstackFrame Frame { get; set; }
         public int MergeId { get; set; }
         public bool IsLeaf { get; set; }
+        public int NodeKey => Frame?.HashCode ?? MergeId;
 
         public string TooltipText
         {
@@ -74,6 +75,7 @@ namespace MegaCallstack.Models
         }
 
         public ObservableCollection<TreeViewNode> Children { get; } = new ObservableCollection<TreeViewNode>();
+        public ObservableCollection<NodeNote> Notes { get; } = new ObservableCollection<NodeNote>();
 
         private bool _isDisplayRoot;
 

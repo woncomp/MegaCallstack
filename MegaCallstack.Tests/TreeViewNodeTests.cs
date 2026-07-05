@@ -141,5 +141,31 @@ namespace MegaCallstack.Tests
             Assert.IsNotNull(color);
             Assert.AreEqual(Colors.Green, ((SolidColorBrush)color).Color);
         }
+
+        [TestMethod]
+        public void NotesCollection_IsInitiallyEmpty()
+        {
+            var node = new TreeViewNode { DisplayText = "Node" };
+            Assert.IsNotNull(node.Notes);
+            Assert.AreEqual(0, node.Notes.Count);
+        }
+
+        [TestMethod]
+        public void NodeKey_ReturnsFrameHashCode_WhenFrameIsSet()
+        {
+            var node = new TreeViewNode
+            {
+                DisplayText = "Node",
+                Frame = new CallstackFrame("Test", "test.cs", 1) { HashCode = 123 }
+            };
+            Assert.AreEqual(123, node.NodeKey);
+        }
+
+        [TestMethod]
+        public void NodeKey_ReturnsMergeId_WhenFrameIsNull()
+        {
+            var node = new TreeViewNode { DisplayText = "Node", MergeId = 456 };
+            Assert.AreEqual(456, node.NodeKey);
+        }
     }
 }

@@ -354,6 +354,8 @@ namespace MegaCallstack.Services
                         session.Callstacks = new List<CallstackData>();
                         session.NodeColors = new Dictionary<int, string>();
                         session.CollapsedNodes = new Dictionary<int, bool>();
+                        session.HiddenAncestorNodes = new Dictionary<int, bool>();
+                        session.NodeNotes = new Dictionary<int, List<NodeNote>>();
                         session.IsLoaded = false;
                         _sessionData.Sessions.Add(session);
                     }
@@ -407,6 +409,7 @@ namespace MegaCallstack.Services
 
             await LoadCallstacksAsync(session, folder);
             await LoadStateAsync(session, folder);
+            await LoadNotesAsync(session, folder);
 
             session.IsLoaded = true;
         }
@@ -451,6 +454,41 @@ namespace MegaCallstack.Services
             {
                 Logger.Error($"LoadSessionDetails: Failed to load state from {filePath}", ex);
             }
+        }
+
+        private async Task LoadNotesAsync(CallstackSession session, string folder)
+        {
+            var filePath = Path.Combine(folder, Constants.NotesFileName);
+            if (!File.Exists(filePath))
+                return;
+
+            try
+            {
+                var json = await Task.Run(() => File.ReadAllText(filePath));
+                var notes = JsonConvert.DeserializeObject<Dictionary<int, List<NodeNote>>>(json);
+                session.NodeNotes = notes ?? new Dictionary<int, List<NodeNote>>();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LoadSessionDetails: Failed to load notes from {filePath}", ex);
+                session.NodeNotes = new Dictionary<int, List<NodeNote>>();
+            }
+        }
+
+        public async Task SaveNotesAsync(CallstackSession session)
+        {
+            await SwitchToMainThreadIfNeededAsync();
+
+            if (session == null)
+                return;
+
+            var folder = GetOrCreateSessionFolder(session);
+            if (folder == null)
+                return;
+
+            var filePath = Path.Combine(folder, Constants.NotesFileName);
+            await WriteJsonAsync(filePath, session.NodeNotes ?? new Dictionary<int, List<NodeNote>>());
+            Logger.Log($"SaveNotes: Saved {filePath}");
         }
 
         public async Task SaveSessionMetadataAsync(CallstackSession session)
@@ -625,6 +663,7 @@ namespace MegaCallstack.Services
                 {
                     await SaveCallstacksAsync(session);
                     await SaveStateAsync(session);
+                    await SaveNotesAsync(session);
                 }
             }
         }
@@ -1031,6 +1070,14 @@ namespace MegaCallstack.Services
                 {
                     node.DisplayBackground = new System.Windows.Media.SolidColorBrush(
                         (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hexColor));
+                }
+
+                if (session.NodeNotes.TryGetValue(frame.HashCode, out var notes))
+                {
+                    foreach (var note in notes)
+                    {
+                        node.Notes.Add(note);
+                    }
                 }
 
                 if (i == 0)

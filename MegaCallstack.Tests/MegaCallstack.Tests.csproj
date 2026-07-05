@@ -38,6 +38,7 @@
   <ItemGroup>
     <Compile Include="CallstackFrameTests.cs" />
     <Compile Include="CallstackSessionTests.cs" />
+    <Compile Include="NodeNoteTests.cs" />
     <Compile Include="TreeBuildingTests.cs" />
     <Compile Include="TreeViewNodeTests.cs" />
     <Compile Include="ScopeParserTests.cs" />

@@ -16,6 +16,7 @@ namespace MegaCallstack.ViewModels
     {
         private readonly CallstackManager _manager;
         private readonly IColorPickerService _colorPickerService;
+        private readonly INoteEditorService _noteEditorService;
 
         private ObservableCollection<TreeViewNode> _treeNodes = new ObservableCollection<TreeViewNode>();
         private ObservableCollection<TreeViewNode> _displayTreeNodes = new ObservableCollection<TreeViewNode>();
@@ -38,10 +39,11 @@ namespace MegaCallstack.ViewModels
         public event Action<string, int> NavigateToFile;
         public event Action TreeUpdated;
 
-        public MegaCallstackViewModel(CallstackManager manager, IColorPickerService colorPickerService)
+        public MegaCallstackViewModel(CallstackManager manager, IColorPickerService colorPickerService, INoteEditorService noteEditorService)
         {
             _manager = manager;
             _colorPickerService = colorPickerService;
+            _noteEditorService = noteEditorService;
 
             CaptureCommand = new RelayCommand(ExecuteCapture, CanCapture);
             SearchCommand = new RelayCommand(ExecuteSearch);
@@ -52,6 +54,8 @@ namespace MegaCallstack.ViewModels
             JumpToFrameCommand = new RelayCommand(ExecuteJumpToFrame, CanJumpToFrame);
             SetColorCommand = new RelayCommand(ExecuteSetColor);
             ClearColorCommand = new RelayCommand(ExecuteClearColor);
+            AddNoteCommand = new RelayCommand(ExecuteAddNote);
+            EditNoteCommand = new RelayCommand<NodeNote>(ExecuteEditNote);
             ToggleAncestorsCommand = new RelayCommand(ExecuteToggleAncestors, CanToggleAncestors);
             SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
             SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
@@ -195,6 +199,8 @@ namespace MegaCallstack.ViewModels
         public ICommand JumpToFrameCommand { get; }
         public ICommand SetColorCommand { get; }
         public ICommand ClearColorCommand { get; }
+        public ICommand AddNoteCommand { get; }
+        public ICommand EditNoteCommand { get; }
         public ICommand ToggleAncestorsCommand { get; }
         public ICommand SwitchToSessionViewCommand { get; }
         public ICommand SwitchToTreeViewCommand { get; }
@@ -483,6 +489,58 @@ namespace MegaCallstack.ViewModels
             }
 
             SelectedNode.ClearColorAndPropagate();
+        }
+
+        private void ExecuteAddNote()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return;
+
+            var result = _noteEditorService.EditNote(null);
+            if (!result.IsConfirmed || result.Note == null)
+                return;
+
+            SelectedNode.Notes.Add(result.Note);
+
+            var key = SelectedNode.NodeKey;
+            if (!_activeSession.NodeNotes.ContainsKey(key))
+                _activeSession.NodeNotes[key] = new System.Collections.Generic.List<NodeNote>();
+            _activeSession.NodeNotes[key].Add(result.Note);
+
+            SaveNotesAsync();
+        }
+
+        private void ExecuteEditNote(NodeNote note)
+        {
+            if (note == null || SelectedNode == null || _activeSession == null)
+                return;
+
+            var result = _noteEditorService.EditNote(note);
+            if (!result.IsConfirmed)
+                return;
+
+            var key = SelectedNode.NodeKey;
+            var sessionNotes = _activeSession.NodeNotes.ContainsKey(key)
+                ? _activeSession.NodeNotes[key]
+                : null;
+
+            if (result.IsDeleted)
+            {
+                SelectedNode.Notes.Remove(note);
+                sessionNotes?.Remove(note);
+            }
+            else if (result.Note != null)
+            {
+                note.Emoji = result.Note.Emoji;
+                note.Text = result.Note.Text;
+            }
+
+            SaveNotesAsync();
+        }
+
+        private async void SaveNotesAsync()
+        {
+            await _manager.SaveNotesAsync(_activeSession);
         }
 
        private bool CanToggleAncestors()

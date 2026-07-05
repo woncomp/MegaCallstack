@@ -24,6 +24,9 @@ namespace MegaCallstack.Models
         public Dictionary<int, bool> HiddenAncestorNodes { get; set; } = new Dictionary<int, bool>();
 
         [JsonIgnore]
+        public Dictionary<int, List<NodeNote>> NodeNotes { get; set; } = new Dictionary<int, List<NodeNote>>();
+
+        [JsonIgnore]
         public bool IsLoaded { get; set; }
 
         public CallstackSession()
