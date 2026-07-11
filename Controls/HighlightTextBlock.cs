@@ -71,7 +71,8 @@ namespace MegaCallstack.Controls
             if (e.Property == ForegroundProperty ||
                 e.Property == TextProperty ||
                 e.Property == HighlightTextProperty ||
-                e.Property == HighlightBackgroundProperty)
+                e.Property == HighlightBackgroundProperty ||
+                e.Property == FontWeightProperty)
             {
                 Rebuild();
             }
@@ -91,21 +92,21 @@ namespace MegaCallstack.Controls
             var text = Text;
             if (string.IsNullOrEmpty(text))
             {
-                _panel.Children.Add(new TextBlock());
+                _panel.Children.Add(new TextBlock { FontWeight = FontWeight });
                 return;
             }
 
             var highlight = HighlightText;
             if (string.IsNullOrEmpty(highlight))
             {
-                _panel.Children.Add(new TextBlock { Text = text, Foreground = foreground });
+                _panel.Children.Add(new TextBlock { Text = text, Foreground = foreground, FontWeight = FontWeight });
                 return;
             }
 
             var segments = SplitText(text, highlight);
             foreach (var (segmentText, isHighlighted) in segments)
             {
-                var tb = new TextBlock { Text = segmentText };
+                var tb = new TextBlock { Text = segmentText, FontWeight = FontWeight };
                 if (isHighlighted)
                 {
                     tb.Background = HighlightBackground;
