@@ -34,7 +34,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MegaCallstack.vsix
-          path: MegaCallstack\MegaCallstack\bin\Release\MegaCallstack.vsix
+          path: MegaCallstack\bin\Release\MegaCallstack.vsix
 
   release:
     needs: build
