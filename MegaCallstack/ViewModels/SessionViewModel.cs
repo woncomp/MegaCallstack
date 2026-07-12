@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using MegaCallstack.Models;
@@ -12,11 +14,16 @@ using MegaCallstack.Services;
 
 namespace MegaCallstack.ViewModels
 {
-    public class MegaCallstackViewModel : INotifyPropertyChanged
+    public class SessionViewModel : INotifyPropertyChanged, IDisposable
     {
-        private readonly CallstackManager _manager;
+        private readonly SolutionInfo _solutionInfo;
+        private readonly SolutionSessionData _sessionData;
+        private readonly ISessionRepository _repository;
+        private readonly ICallstackCaptureService _captureService;
+        private readonly ICallstackTreeBuilder _treeBuilder;
         private readonly IColorPickerService _colorPickerService;
         private readonly INoteEditorService _noteEditorService;
+        private readonly Window _window;
 
         private ObservableCollection<TreeViewNode> _treeNodes = new ObservableCollection<TreeViewNode>();
         private ObservableCollection<TreeViewNode> _displayTreeNodes = new ObservableCollection<TreeViewNode>();
@@ -32,18 +39,33 @@ namespace MegaCallstack.ViewModels
         private CallstackSession _selectedSession;
         private string _sessionFilterText;
 
-        public CallstackManager Manager => _manager;
+        public SolutionInfo SolutionInfo => _solutionInfo;
         public CallstackSession ActiveSession => _activeSession;
+        public ISessionRepository Repository => _repository;
+        public ICallstackTreeBuilder TreeBuilder => _treeBuilder;
 
         public event PropertyChangedEventHandler PropertyChanged;
         public event Action<string, int> NavigateToFile;
         public event Action TreeUpdated;
 
-        public MegaCallstackViewModel(CallstackManager manager, IColorPickerService colorPickerService, INoteEditorService noteEditorService)
+        public SessionViewModel(
+            SolutionInfo solutionInfo,
+            SolutionSessionData sessionData,
+            ISessionRepository repository,
+            ICallstackCaptureService captureService,
+            ICallstackTreeBuilder treeBuilder,
+            IColorPickerService colorPickerService,
+            INoteEditorService noteEditorService,
+            Window window)
         {
-            _manager = manager;
+            _solutionInfo = solutionInfo;
+            _sessionData = sessionData;
+            _repository = repository;
+            _captureService = captureService;
+            _treeBuilder = treeBuilder;
             _colorPickerService = colorPickerService;
             _noteEditorService = noteEditorService;
+            _window = window;
 
             CaptureCommand = new RelayCommand(ExecuteCapture, CanCapture);
             SearchCommand = new RelayCommand(ExecuteSearch);
@@ -66,6 +88,30 @@ namespace MegaCallstack.ViewModels
             CancelRenameCommand = new RelayCommand(ExecuteCancelRename);
             DeleteSessionCommand = new RelayCommand<CallstackSession>(ExecuteDeleteSession);
             DeleteSelectedSessionCommand = new RelayCommand(ExecuteDeleteSelectedSession, CanDeleteSelectedSession);
+
+            _captureService.DebuggerStateChanged += OnDebuggerStateChanged;
+        }
+
+        public void Dispose()
+        {
+            _captureService.DebuggerStateChanged -= OnDebuggerStateChanged;
+        }
+
+        private void OnDebuggerStateChanged(object sender, EventArgs e)
+        {
+            OnPropertyChanged(nameof(CaptureButtonTooltip));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        public Task LoadDataAsync()
+        {
+            _activeSession = null;
+            ActiveSessionName = string.Empty;
+
+            NotifyHomePageProperties();
+            RefreshTreeNodes();
+            RefreshSessionsList();
+            return Task.CompletedTask;
         }
 
         public ObservableCollection<TreeViewNode> TreeNodes
@@ -74,16 +120,16 @@ namespace MegaCallstack.ViewModels
             set { _treeNodes = value; OnPropertyChanged(); }
         }
 
-       public ObservableCollection<TreeViewNode> DisplayTreeNodes
-       {
-           get => _displayTreeNodes;
-           set { _displayTreeNodes = value; OnPropertyChanged(); }
-       }
+        public ObservableCollection<TreeViewNode> DisplayTreeNodes
+        {
+            get => _displayTreeNodes;
+            set { _displayTreeNodes = value; OnPropertyChanged(); }
+        }
 
         public bool IsSelectedNodeDisplayRoot => SelectedNode?.IsDisplayRoot ?? false;
 
-       public TreeViewNode SelectedNode
-       {
+        public TreeViewNode SelectedNode
+        {
             get => _selectedNode;
             set
             {
@@ -94,15 +140,15 @@ namespace MegaCallstack.ViewModels
 
                     _selectedNode = value;
 
-                   if (_selectedNode != null)
-                       _selectedNode.IsSelected = true;
+                    if (_selectedNode != null)
+                        _selectedNode.IsSelected = true;
 
-                   UpdatePathBolding();
-                   OnPropertyChanged();
+                    UpdatePathBolding();
+                    OnPropertyChanged();
                     OnPropertyChanged(nameof(IsSelectedNodeDisplayRoot));
-               }
-           }
-       }
+                }
+            }
+        }
 
         public string SearchText
         {
@@ -135,14 +181,16 @@ namespace MegaCallstack.ViewModels
 
         public CallstackSession PreviousSession
         {
-            get => _manager.GetLastActiveSession();
+            get => _sessionData.ActiveSessionId != null
+                ? _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.ActiveSessionId)
+                : null;
         }
 
         public bool CanResumePreviousSession => PreviousSession != null;
 
         public string PreviousSessionName => string.IsNullOrWhiteSpace(PreviousSession?.Name) ? "Untitled Session" : PreviousSession.Name;
 
-        public bool HasAnySessions => _manager.HasAnySessions;
+        public bool HasAnySessions => _sessionData.Sessions.Count > 0;
 
         public bool IsHomePageVisible => IsTreeViewMode && !HasActiveSession;
 
@@ -212,17 +260,6 @@ namespace MegaCallstack.ViewModels
         public ICommand DeleteSessionCommand { get; }
         public ICommand DeleteSelectedSessionCommand { get; }
 
-        public Task LoadDataAsync()
-        {
-            _activeSession = null;
-            ActiveSessionName = string.Empty;
-
-            NotifyHomePageProperties();
-            RefreshTreeNodes();
-            RefreshSessionsList();
-            return Task.CompletedTask;
-        }
-
         private void NotifyHomePageProperties()
         {
             OnPropertyChanged(nameof(HasActiveSession));
@@ -235,12 +272,12 @@ namespace MegaCallstack.ViewModels
             OnPropertyChanged(nameof(CaptureButtonTooltip));
         }
 
-        private void RefreshTreeNodes()
+        public void RefreshTreeNodes()
         {
-            var nodes = _manager.BuildTreeNodes(_activeSession);
+            var nodes = _treeBuilder.BuildTreeNodes(_activeSession);
             TreeNodes = new ObservableCollection<TreeViewNode>(nodes);
 
-            var displayNodes = _manager.BuildDisplayTreeNodes(_activeSession, nodes);
+            var displayNodes = _treeBuilder.BuildDisplayTreeNodes(_activeSession, nodes);
             DisplayTreeNodes = new ObservableCollection<TreeViewNode>(displayNodes);
 
             TreeUpdated?.Invoke();
@@ -249,10 +286,9 @@ namespace MegaCallstack.ViewModels
         private void RefreshSessionsList()
         {
             Sessions.Clear();
-            foreach (var session in _manager.SessionData.Sessions)
-            {
+            foreach (var session in _sessionData.Sessions)
                 Sessions.Add(session);
-            }
+
             OnPropertyChanged(nameof(HasAnySessions));
             OnPropertyChanged(nameof(PreviousSession));
             OnPropertyChanged(nameof(PreviousSessionName));
@@ -263,9 +299,7 @@ namespace MegaCallstack.ViewModels
         private async Task EnsureSessionLoadedAsync(CallstackSession session)
         {
             if (session != null && !session.IsLoaded)
-            {
-                await _manager.LoadSessionDetailsAsync(session);
-            }
+                await _repository.LoadSessionDetailsAsync(session);
         }
 
         private void ApplySessionFilter()
@@ -284,7 +318,7 @@ namespace MegaCallstack.ViewModels
 
         private async void ExecuteCapture()
         {
-            var callstack = await _manager.CaptureCurrentCallstackAsync();
+            var callstack = await _captureService.CaptureCurrentCallstackAsync();
             if (callstack == null)
                 return;
 
@@ -292,17 +326,17 @@ namespace MegaCallstack.ViewModels
             {
                 var leafFrame = callstack.Frames.LastOrDefault();
                 var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
-                _activeSession = _manager.CreateSession(sessionName);
-                _manager.SetActiveSession(_activeSession.Id);
+                _activeSession = CreateSession(sessionName);
+                SetActiveSession(_activeSession);
                 ActiveSessionName = _activeSession.Name;
                 NotifyHomePageProperties();
 
                 await EnsureSessionLoadedAsync(_activeSession);
             }
 
-            _manager.AddOrUpdateCallstack(_activeSession, callstack);
-            await _manager.SaveSessionMetadataAsync(_activeSession);
-            await _manager.SaveCallstacksAsync(_activeSession);
+            AddOrUpdateCallstack(_activeSession, callstack);
+            await _repository.SaveSessionMetadataAsync(_activeSession);
+            await _repository.SaveCallstacksAsync(_activeSession);
 
             RefreshTreeNodes();
             RefreshSessionsList();
@@ -310,7 +344,7 @@ namespace MegaCallstack.ViewModels
 
         private bool CanCapture()
         {
-            return _manager.IsDebuggerInBreakMode;
+            return _captureService.IsDebuggerInBreakMode;
         }
 
         private void ExecuteSearch()
@@ -323,9 +357,7 @@ namespace MegaCallstack.ViewModels
 
             var searchLower = SearchText.ToLower();
             foreach (var rootNode in TreeNodes)
-            {
                 CollectMatchingNodes(rootNode, searchLower, _searchMatches);
-            }
 
             if (_searchMatches.Count > 0)
             {
@@ -337,14 +369,10 @@ namespace MegaCallstack.ViewModels
         private void CollectMatchingNodes(TreeViewNode node, string searchText, List<TreeViewNode> matches)
         {
             if (node.DisplayText != null && node.DisplayText.ToLower().Contains(searchText))
-            {
                 matches.Add(node);
-            }
 
             foreach (var child in node.Children)
-            {
                 CollectMatchingNodes(child, searchText, matches);
-            }
         }
 
         private bool CanNavigateMatches()
@@ -402,7 +430,7 @@ namespace MegaCallstack.ViewModels
             var parent = SelectedNode?.Parent;
             if (parent?.Frame != null)
             {
-                int line = await _manager.ResolveFrameLineNumberAsync(parent.Frame);
+                int line = await _captureService.ResolveFrameLineNumberAsync(parent.Frame);
                 NavigateToFile?.Invoke(parent.Frame.FileName, line);
             }
         }
@@ -416,7 +444,7 @@ namespace MegaCallstack.ViewModels
         {
             if (SelectedNode?.Frame != null)
             {
-                int line = await _manager.ResolveFrameLineNumberAsync(SelectedNode.Frame);
+                int line = await _captureService.ResolveFrameLineNumberAsync(SelectedNode.Frame);
                 NavigateToFile?.Invoke(SelectedNode.Frame.FileName, line);
             }
         }
@@ -428,9 +456,7 @@ namespace MegaCallstack.ViewModels
 
             Color? initialColor = null;
             if (SelectedNode.DisplayForeground is SolidColorBrush solidBrush)
-            {
                 initialColor = solidBrush.Color;
-            }
 
             var result = _colorPickerService.PickColor(initialColor);
 
@@ -486,7 +512,7 @@ namespace MegaCallstack.ViewModels
 
             var key = SelectedNode.NodeKey;
             if (!_activeSession.NodeNotes.ContainsKey(key))
-                _activeSession.NodeNotes[key] = new System.Collections.Generic.List<NodeNote>();
+                _activeSession.NodeNotes[key] = new List<NodeNote>();
             _activeSession.NodeNotes[key].Add(result.Note);
 
             SaveNotesAsync();
@@ -522,63 +548,53 @@ namespace MegaCallstack.ViewModels
 
         private async void SaveNotesAsync()
         {
-            await _manager.SaveNotesAsync(_activeSession);
+            await _repository.SaveNotesAsync(_activeSession);
         }
 
-       private bool CanToggleAncestors()
-       {
-           if (SelectedNode == null || _activeSession == null)
-               return false;
+        private bool CanToggleAncestors()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return false;
 
             if (SelectedNode.IsDisplayRoot)
                 return true;
 
-           return _manager.CanHideAncestors(SelectedNode);
-       }
+            return _treeBuilder.CanHideAncestors(SelectedNode);
+        }
 
-       private async void ExecuteToggleAncestors()
-       {
-           if (SelectedNode == null || _activeSession == null)
-               return;
+        private async void ExecuteToggleAncestors()
+        {
+            if (SelectedNode == null || _activeSession == null)
+                return;
 
             if (SelectedNode.IsDisplayRoot)
-           {
-               _manager.ClearHiddenAncestorsForPath(_activeSession, SelectedNode);
-           }
-           else
-           {
-               _manager.SetHiddenAncestors(_activeSession, SelectedNode);
-           }
+                _treeBuilder.ClearHiddenAncestorsForPath(_activeSession, SelectedNode);
+            else
+                _treeBuilder.SetHiddenAncestors(_activeSession, SelectedNode);
 
-            await _manager.SaveStateAsync(_activeSession);
+            await _repository.SaveStateAsync(_activeSession);
             RefreshTreeNodes();
         }
 
         private async void SaveStateAsync()
         {
-            await _manager.SaveStateAsync(_activeSession);
+            await _repository.SaveStateAsync(_activeSession);
         }
 
         private void UpdatePathBolding()
         {
             foreach (var rootNode in TreeNodes)
-            {
                 ClearBoldRecursive(rootNode);
-            }
 
             if (_selectedNode != null)
-            {
                 _selectedNode.SetPathBold(true);
-            }
         }
 
         private void ClearBoldRecursive(TreeViewNode node)
         {
             node.IsBold = false;
             foreach (var child in node.Children)
-            {
                 ClearBoldRecursive(child);
-            }
         }
 
         private void ExecuteSwitchToSessionView()
@@ -594,23 +610,23 @@ namespace MegaCallstack.ViewModels
 
         private async void ExecuteCreateSession()
         {
-            var callstack = await _manager.CaptureCurrentCallstackAsync();
+            var callstack = await _captureService.CaptureCurrentCallstackAsync();
             if (callstack == null)
                 return;
 
             var leafFrame = callstack.Frames.LastOrDefault();
             var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
-            var session = _manager.CreateSession(sessionName);
-            _manager.SetActiveSession(session.Id);
+            var session = CreateSession(sessionName);
+            SetActiveSession(session);
             _activeSession = session;
             ActiveSessionName = session.Name;
             NotifyHomePageProperties();
 
             await EnsureSessionLoadedAsync(session);
 
-            _manager.AddOrUpdateCallstack(session, callstack);
-            await _manager.SaveSessionMetadataAsync(session);
-            await _manager.SaveCallstacksAsync(session);
+            AddOrUpdateCallstack(session, callstack);
+            await _repository.SaveSessionMetadataAsync(session);
+            await _repository.SaveCallstacksAsync(session);
 
             RefreshTreeNodes();
             RefreshSessionsList();
@@ -623,7 +639,7 @@ namespace MegaCallstack.ViewModels
             if (session == null)
                 return;
 
-            _manager.SetActiveSession(session.Id);
+            SetActiveSession(session);
             _activeSession = session;
             ActiveSessionName = session.Name;
             NotifyHomePageProperties();
@@ -648,7 +664,7 @@ namespace MegaCallstack.ViewModels
             {
                 _activeSession.Name = RenameText;
                 ActiveSessionName = RenameText;
-                await _manager.SaveSessionMetadataAsync(_activeSession);
+                await _repository.SaveSessionMetadataAsync(_activeSession);
                 RefreshSessionsList();
             }
             IsRenaming = false;
@@ -664,23 +680,41 @@ namespace MegaCallstack.ViewModels
             if (session == null)
                 return;
 
-            _manager.DeleteSession(session);
+            _sessionData.Sessions.Remove(session);
+            DeleteSessionFolder(session);
 
             if (_activeSession == session)
             {
-            _activeSession = null;
-            ActiveSessionName = string.Empty;
-            NotifyHomePageProperties();
-            RefreshTreeNodes();
+                _activeSession = null;
+                ActiveSessionName = string.Empty;
+                NotifyHomePageProperties();
+                RefreshTreeNodes();
+            }
+
+            RefreshSessionsList();
         }
 
-        RefreshSessionsList();
-    }
+        private void DeleteSessionFolder(CallstackSession session)
+        {
+            var folder = _repository.GetSessionFolderPath(session);
+            if (folder != null && Directory.Exists(folder))
+            {
+                try
+                {
+                    Directory.Delete(folder, true);
+                    Logger.Log($"SessionViewModel: Deleted folder {folder}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"SessionViewModel: Failed to delete folder {folder}", ex);
+                }
+            }
+        }
 
-    private bool CanDeleteSelectedSession()
-    {
-        return _selectedSession != null;
-    }
+        private bool CanDeleteSelectedSession()
+        {
+            return _selectedSession != null;
+        }
 
         private void ExecuteDeleteSelectedSession()
         {
@@ -692,51 +726,39 @@ namespace MegaCallstack.ViewModels
             OnPropertyChanged(nameof(SelectedSession));
         }
 
+        public CallstackSession CreateSession(string name)
+        {
+            var session = new CallstackSession(name)
+            {
+                FolderName = _repository.GenerateSessionFolderName()
+            };
+            _sessionData.Sessions.Add(session);
+            return session;
+        }
+
+        public void SetActiveSession(CallstackSession session)
+        {
+            _sessionData.ActiveSessionId = session?.Id;
+            _repository.SaveActiveSessionIdAsync(_sessionData.ActiveSessionId).ConfigureAwait(false);
+        }
+
+        public void AddOrUpdateCallstack(CallstackSession session, CallstackData callstack)
+        {
+            var existing = session.Callstacks.FirstOrDefault(c => c.LeafHashCode == callstack.LeafHashCode);
+            if (existing != null)
+            {
+                var index = session.Callstacks.IndexOf(existing);
+                session.Callstacks[index] = callstack;
+            }
+            else
+            {
+                session.Callstacks.Add(callstack);
+            }
+        }
+
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-    }
-
-    public class RelayCommand : ICommand
-    {
-        private readonly Action _execute;
-        private readonly Func<bool> _canExecute;
-
-        public RelayCommand(Action execute, Func<bool> canExecute = null)
-        {
-            _execute = execute;
-            _canExecute = canExecute;
-        }
-
-        public event EventHandler CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
-
-        public bool CanExecute(object parameter) => _canExecute?.Invoke() ?? true;
-        public void Execute(object parameter) => _execute?.Invoke();
-    }
-
-    public class RelayCommand<T> : ICommand
-    {
-        private readonly Action<T> _execute;
-        private readonly Func<T, bool> _canExecute;
-
-        public RelayCommand(Action<T> execute, Func<T, bool> canExecute = null)
-        {
-            _execute = execute;
-            _canExecute = canExecute;
-        }
-
-        public event EventHandler CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
-
-        public bool CanExecute(object parameter) => _canExecute?.Invoke((T)parameter) ?? true;
-        public void Execute(object parameter) => _execute?.Invoke((T)parameter);
     }
 }

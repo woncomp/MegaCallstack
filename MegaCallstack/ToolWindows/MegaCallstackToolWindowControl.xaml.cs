@@ -14,12 +14,8 @@ namespace MegaCallstack.ToolWindows
 {
     public partial class MegaCallstackToolWindowControl : UserControl
     {
-        private MegaCallstackViewModel _viewModel;
-        private CallstackManager _manager;
-        // EnvDTE event objects are kept alive by this reference; without it the
-        // GC can collect them and the Opened event stops firing.
-        private EnvDTE.Events _dteEvents;
-        private EnvDTE.SolutionEvents _solutionEvents;
+        private ISolutionInfoProvider _solutionInfoProvider;
+        private SolutionWorkspace _workspace;
 
         public MegaCallstackToolWindowControl()
         {
@@ -29,76 +25,62 @@ namespace MegaCallstack.ToolWindows
 
         private async void OnLoaded(object sender, RoutedEventArgs e)
         {
-            if (_viewModel != null)
+            if (_solutionInfoProvider != null)
                 return;
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
-            string solutionName = "none";
-            try { solutionName = dte?.Solution?.FullName ?? "none"; } catch { }
-            Logger.Log($"ToolWindow: Initializing, solution={solutionName}");
+            Logger.Log("ToolWindow: Initializing");
 
-            _manager = new CallstackManager(dte);
-            await _manager.LoadDataAsync();
+            _solutionInfoProvider = new SolutionInfoProvider(dte);
+            _solutionInfoProvider.CurrentChanged += OnSolutionInfoChanged;
 
-            // Compute user-code roots before any capture so trimming has an
-            // accurate picture of where the solution's code actually lives
-            // (which may be outside the .sln directory).
-            await _manager.ComputeSolutionRootsAsync();
-            HookSolutionEvents(dte);
-            Logger.Log("ToolWindow: LoadData and root detection complete");
-
-            _viewModel = new MegaCallstackViewModel(_manager, new WpfColorPickerService(Window.GetWindow(this)), new WpfNoteEditorService(Window.GetWindow(this)));
-            _viewModel.NavigateToFile += OnNavigateToFile;
-            _viewModel.TreeUpdated += OnTreeUpdated;
-            DataContext = _viewModel;
-
-            await _viewModel.LoadDataAsync();
+            ApplySolutionInfo(_solutionInfoProvider.Current);
         }
 
-        /// <summary>
-        /// Subscribes to solution-open events so the user-code roots are
-        /// recomputed when the user switches solutions after the window is
-        /// already open. Holds the events object references to prevent GC.
-        /// </summary>
-        private void HookSolutionEvents(EnvDTE.DTE dte)
+        private void OnSolutionInfoChanged(object sender, EventArgs e)
         {
-            if (dte == null)
+            ApplySolutionInfo(_solutionInfoProvider.Current);
+        }
+
+        private async void ApplySolutionInfo(SolutionInfo info)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            _workspace?.Dispose();
+            _workspace = null;
+
+            if (info == null)
             {
-                Logger.Log("ToolWindow: No DTE, skipping solution-event subscription");
+                Logger.Log("ToolWindow: No solution loaded, showing empty workspace");
+                Content = new EmptyWorkspaceView();
                 return;
             }
 
-            try
-            {
-                _dteEvents = dte.Events;
-                _solutionEvents = _dteEvents.SolutionEvents;
-                _solutionEvents.Opened += OnSolutionOpened;
-                Logger.Log("ToolWindow: Subscribed to solution-open events");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("ToolWindow: Failed to subscribe to solution events", ex);
-            }
-        }
+            Logger.Log($"ToolWindow: Creating workspace for {info.FullPath}");
 
-        private void OnSolutionOpened()
-        {
-            Logger.Log("ToolWindow: Solution opened/reopened, reloading sessions and recomputing roots");
-            ThreadHelper.JoinableTaskFactory.Run(async () =>
-            {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                if (_manager != null)
-                {
-                    await _manager.LoadDataAsync();
-                    await _manager.ComputeSolutionRootsAsync();
-                }
-                if (_viewModel != null)
-                {
-                    await _viewModel.LoadDataAsync();
-                }
-            });
+            var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
+            var captureService = new CallstackCaptureService(dte);
+            var treeBuilder = new CallstackTreeBuilder();
+            var repository = new SessionRepository(info);
+            var window = Window.GetWindow(this);
+
+            _workspace = new SolutionWorkspace(
+                info,
+                repository,
+                captureService,
+                treeBuilder,
+                new WpfColorPickerService(window),
+                new WpfNoteEditorService(window),
+                window);
+
+            var workspaceView = new WorkspaceView();
+            workspaceView.NavigateToFile += OnNavigateToFile;
+            Content = workspaceView;
+
+            await _workspace.InitializeAsync();
+            workspaceView.DataContext = _workspace.ViewModel;
         }
 
         private void OnNavigateToFile(string fileName, int lineNumber)
@@ -124,132 +106,6 @@ namespace MegaCallstack.ToolWindows
                 {
                 }
             });
-        }
-
-        private void OnTreeUpdated()
-        {
-            MainTreeView.ItemsSource = _viewModel?.DisplayTreeNodes;
-        }
-
-        private void TreeView_Selected(object sender, RoutedEventArgs e)
-        {
-            if (e.OriginalSource is TreeViewItem tvi && tvi.DataContext is TreeViewNode node)
-            {
-                if (_viewModel != null)
-                    _viewModel.SelectedNode = node;
-            }
-        }
-
-        private void TreeViewItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.OriginalSource is FrameworkElement fe && fe.DataContext is TreeViewNode node)
-            {
-                if (_viewModel != null)
-                    _viewModel.SelectedNode = node;
-            }
-            else if (sender is TreeViewItem tvi && tvi.DataContext is TreeViewNode node2)
-            {
-                if (_viewModel != null)
-                    _viewModel.SelectedNode = node2;
-            }
-        }
-
-        private void TreeViewItem_DoubleClick(object sender, RoutedEventArgs e)
-        {
-            if (_viewModel != null)
-            {
-                _viewModel.DoubleClickNodeCommand.Execute(null);
-            }
-        }
-
-        private void TreeViewItem_ExpandedCollapsed(object sender, RoutedEventArgs e)
-        {
-            if (sender is TreeViewItem tvi && tvi.DataContext is TreeViewNode node && _viewModel != null)
-            {
-                if (node.Frame != null && _viewModel.ActiveSession != null)
-                {
-                    _viewModel.Manager.SaveExpansionState(_viewModel.ActiveSession, node.MergeId, tvi.IsExpanded);
-                }
-            }
-        }
-
-        private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                textBox.SelectAll();
-            }
-        }
-
-        private void RenameTextBox_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                _viewModel?.ConfirmRenameCommand.Execute(null);
-            }
-            else if (e.Key == Key.Escape)
-            {
-                _viewModel?.CancelRenameCommand.Execute(null);
-            }
-        }
-
-        private void DeleteSelectedSession_Click(object sender, RoutedEventArgs e)
-        {
-            if (_viewModel?.SelectedSession == null)
-                return;
-
-            var result = MessageBox.Show(
-                $"Are you sure you want to delete session '{_viewModel.SelectedSession.Name}'?",
-                "Confirm Delete",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _viewModel.DeleteSelectedSessionCommand.Execute(null);
-            }
-        }
-
-        private void SessionViewContent_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (_viewModel?.SelectedSession != null)
-            {
-                _viewModel.ActivateSessionCommand.Execute(_viewModel.SelectedSession);
-            }
-        }
-    }
-
-    public class InverseBoolToVisibilityConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool b)
-                return b ? Visibility.Collapsed : Visibility.Visible;
-            return Visibility.Visible;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is Visibility v)
-                return v != Visibility.Visible;
-            return false;
-        }
-    }
-
-    public class BoolToBoldConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool b && b)
-                return FontWeights.Bold;
-            return FontWeights.Normal;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is FontWeight fw)
-                return fw == FontWeights.Bold;
-            return false;
         }
     }
 }

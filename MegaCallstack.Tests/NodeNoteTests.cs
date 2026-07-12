@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MegaCallstack.Models;
@@ -13,12 +12,16 @@ namespace MegaCallstack.Tests
     public class NodeNoteTests
     {
         private string _tempDirectory;
+        private SolutionInfo _solutionInfo;
+        private ISessionRepository _repository;
 
         [TestInitialize]
         public void Setup()
         {
             _tempDirectory = Path.Combine(Path.GetTempPath(), "MegaCallstackNoteTests_" + System.Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(_tempDirectory);
+            _solutionInfo = new SolutionInfo(Path.Combine(_tempDirectory, "Test.sln"));
+            _repository = new SessionRepository(_solutionInfo);
         }
 
         [TestCleanup]
@@ -44,12 +47,8 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task LoadNotesAsync_LoadsNotesFromJson()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
-            Directory.CreateDirectory(folder);
+            var session = CreateSession("TestSession");
+            var folder = _repository.GetOrCreateSessionFolder(session);
 
             var notes = new Dictionary<int, List<NodeNote>>
             {
@@ -61,7 +60,7 @@ namespace MegaCallstack.Tests
             };
             File.WriteAllText(Path.Combine(folder, Constants.NotesFileName), JsonConvert.SerializeObject(notes));
 
-            await manager.LoadSessionDetailsAsync(session);
+            await _repository.LoadSessionDetailsAsync(session);
 
             Assert.IsTrue(session.NodeNotes.ContainsKey(42));
             Assert.AreEqual(2, session.NodeNotes[42].Count);
@@ -72,18 +71,15 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public async Task SaveNotesAsync_WritesNotesToJson()
         {
-            var manager = CreateManager();
-            InjectDataDirectory(manager);
-
-            var session = manager.CreateSession("TestSession");
+            var session = CreateSession("TestSession");
             session.NodeNotes[99] = new List<NodeNote>
             {
                 new NodeNote { Emoji = "💡", Text = "Idea" }
             };
 
-            await manager.SaveNotesAsync(session);
+            await _repository.SaveNotesAsync(session);
 
-            var folder = Path.Combine(_tempDirectory, session.FolderName);
+            var folder = _repository.GetSessionFolderPath(session);
             var filePath = Path.Combine(folder, Constants.NotesFileName);
             Assert.IsTrue(File.Exists(filePath));
 
@@ -95,16 +91,12 @@ namespace MegaCallstack.Tests
             Assert.AreEqual("Idea", deserialized[99][0].Text);
         }
 
-        private CallstackManager CreateManager()
+        private CallstackSession CreateSession(string name)
         {
-            return new CallstackManager(null);
-        }
-
-        private void InjectDataDirectory(CallstackManager manager)
-        {
-            var field = typeof(CallstackManager).GetField("_dataDirectory",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            field.SetValue(manager, _tempDirectory);
+            return new CallstackSession(name)
+            {
+                FolderName = _repository.GenerateSessionFolderName()
+            };
         }
     }
 }
