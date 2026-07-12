@@ -118,6 +118,9 @@ namespace MegaCallstack.Services
                 try
                 {
                     var info = new SolutionInfo(fullPath, NormalizeRoots(roots, fullPath));
+                    Logger.Log($"SolutionInfoProvider: Found {info.UserCodeRoots.Count} user-code roots:");
+                    foreach (var root in info.UserCodeRoots)
+                        Logger.Log($"  - {root}");
                     SetCurrent(info);
                 }
                 catch (Exception ex)
