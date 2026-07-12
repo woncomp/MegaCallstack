@@ -15,6 +15,7 @@ namespace MegaCallstack
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideToolWindow(typeof(MegaCallstackToolWindow), Style = Microsoft.VisualStudio.Shell.VsDockStyle.Tabbed, Window = "3ae79031-e1bc-11d0-8f78-00a0c9110057")]
     [ProvideAutoLoad(UIContextGuids.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
+    [ProvideBindingPath]
     public sealed class MegaCallstackPackage : AsyncPackage
     {
         public const string PackageGuidString = "76259f0b-18fa-4a6e-8d6b-7b29270be2f1";

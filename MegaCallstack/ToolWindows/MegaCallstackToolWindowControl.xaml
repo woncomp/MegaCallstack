@@ -10,6 +10,7 @@
               xmlns:vsimg="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.Imaging"
               xmlns:vscat="clr-namespace:Microsoft.VisualStudio.Imaging;assembly=Microsoft.VisualStudio.ImageCatalog"
               xmlns:vsplat="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Imaging"
+             xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="400">
     <UserControl.Resources>
@@ -399,7 +400,7 @@
                                                           TextWrapping="Wrap"
                                                           MaxWidth="300"/>
                                            </Button.ToolTip>
-                                           <TextBlock Text="{Binding Emoji}" FontSize="14" VerticalAlignment="Center" Margin="0,-1"/>
+                                           <Image emoji:Image.Source="{Binding Emoji}" Width="16" Height="16" VerticalAlignment="Center" Margin="0,-1"/>
                                        </Button>
                                    </DataTemplate>
                                </ItemsControl.ItemTemplate>
