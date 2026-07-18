@@ -14,6 +14,7 @@ namespace MegaCallstack.Services
     {
         private readonly DTE _dte;
         private readonly FuzzyBookmarkEngine _bookmarkEngine;
+        private readonly List<string> _userCodeRoots;
         private EnvDTE.Events _dteEvents;
         private EnvDTE.DebuggerEvents _debuggerEvents;
 
@@ -35,14 +36,25 @@ namespace MegaCallstack.Services
         }
 
         public CallstackCaptureService(DTE dte)
-            : this(dte, new FuzzyBookmarkEngine())
+            : this(dte, null, new FuzzyBookmarkEngine())
         {
         }
 
         public CallstackCaptureService(DTE dte, FuzzyBookmarkEngine bookmarkEngine)
+            : this(dte, null, bookmarkEngine)
+        {
+        }
+
+        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots)
+            : this(dte, userCodeRoots, new FuzzyBookmarkEngine())
+        {
+        }
+
+        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, FuzzyBookmarkEngine bookmarkEngine)
         {
             _dte = dte;
             _bookmarkEngine = bookmarkEngine ?? new FuzzyBookmarkEngine();
+            _userCodeRoots = NormalizeUserCodeRoots(userCodeRoots);
             HookDebuggerEvents(dte);
         }
 
@@ -121,6 +133,7 @@ namespace MegaCallstack.Services
             if (rawFrames.Count == 0)
                 return null;
 
+            rawFrames = TrimToUserCode(rawFrames);
             rawFrames.Reverse();
 
             var frames = new List<CallstackFrame>();
@@ -213,6 +226,89 @@ namespace MegaCallstack.Services
             {
             }
             return string.Empty;
+        }
+
+        private List<CallstackFrame> TrimToUserCode(List<CallstackFrame> frames)
+        {
+            if (_userCodeRoots == null || _userCodeRoots.Count == 0)
+                return frames;
+
+            int firstUserCodeIndex = -1;
+            int lastKnownBoundaryIndex = -1;
+            for (int i = frames.Count - 1; i >= 0; i--)
+            {
+                var fileName = frames[i].FileName;
+                if (string.IsNullOrEmpty(fileName))
+                    continue;
+
+                if (lastKnownBoundaryIndex < 0)
+                    lastKnownBoundaryIndex = i;
+
+                try
+                {
+                    var normalizedFile = Path.GetFullPath(fileName);
+                    bool isUserCode = false;
+                    foreach (var root in _userCodeRoots)
+                    {
+                        if (normalizedFile.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isUserCode = true;
+                            break;
+                        }
+                    }
+
+                    if (isUserCode)
+                    {
+                        firstUserCodeIndex = i;
+                        break;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            int keepUntilIndex = firstUserCodeIndex >= 0 ? firstUserCodeIndex : lastKnownBoundaryIndex;
+            if (keepUntilIndex >= 0 && keepUntilIndex < frames.Count - 1)
+            {
+                Logger.Log($"TrimToUserCode: Keeping frames 0..{keepUntilIndex} (trimmed {frames.Count - 1 - keepUntilIndex} root frames) using {_userCodeRoots.Count} user-code root(s)");
+                return frames.GetRange(0, keepUntilIndex + 1);
+            }
+
+            return frames;
+        }
+
+        private static List<string> NormalizeUserCodeRoots(IEnumerable<string> userCodeRoots)
+        {
+            var result = new List<string>();
+            if (userCodeRoots == null)
+                return result;
+
+            foreach (var root in userCodeRoots)
+            {
+                var normalized = NormalizeRoot(root);
+                if (normalized != null && !result.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                    result.Add(normalized);
+            }
+
+            return result;
+        }
+
+        private static string NormalizeRoot(string dir)
+        {
+            if (string.IsNullOrEmpty(dir))
+                return null;
+
+            try
+            {
+                return Path.GetFullPath(dir)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

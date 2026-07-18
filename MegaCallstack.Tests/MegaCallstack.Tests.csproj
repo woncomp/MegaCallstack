@@ -36,6 +36,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CallstackCaptureServiceTests.cs" />
     <Compile Include="CallstackFrameTests.cs" />
     <Compile Include="CallstackSessionTests.cs" />
     <Compile Include="NodeNoteTests.cs" />

@@ -61,7 +61,7 @@ namespace MegaCallstack.ToolWindows
             Logger.Log($"ToolWindow: Creating workspace for {info.FullPath}");
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
-            var captureService = new CallstackCaptureService(dte);
+            var captureService = new CallstackCaptureService(dte, info.UserCodeRoots);
             var treeBuilder = new CallstackTreeBuilder();
             var repository = new SessionRepository(info);
             var window = Window.GetWindow(this);
