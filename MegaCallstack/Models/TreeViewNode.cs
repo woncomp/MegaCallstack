@@ -24,6 +24,7 @@ namespace MegaCallstack.Models
 
         public CallstackFrame Frame { get; set; }
         public int MergeId { get; set; }
+        public int TreeRootOrder { get; set; }
         public bool IsLeaf { get; set; }
         public int NodeKey => Frame?.HashCode ?? MergeId;
 

@@ -16,11 +16,26 @@ namespace MegaCallstack.Services
                 return nodes;
 
             int mergeId = 1;
+            int rootOrder = 0;
+            var rootOrderByHash = new Dictionary<int, int>();
             foreach (var callstack in session.Callstacks)
             {
                 var rootNode = BuildTreeFromCallstack(callstack, session, ref mergeId);
-                if (rootNode != null)
-                    MergeTree(nodes, rootNode);
+                if (rootNode == null)
+                    continue;
+
+                if (!rootOrderByHash.ContainsKey(rootNode.Frame.HashCode))
+                {
+                    rootNode.TreeRootOrder = rootOrder;
+                    rootOrderByHash[rootNode.Frame.HashCode] = rootOrder;
+                    rootOrder++;
+                }
+                else
+                {
+                    rootNode.TreeRootOrder = rootOrderByHash[rootNode.Frame.HashCode];
+                }
+
+                MergeTree(nodes, rootNode);
             }
 
             SortTree(nodes);
@@ -135,10 +150,15 @@ namespace MegaCallstack.Services
 
         private void SortTree(IList<TreeViewNode> nodes)
         {
-            var sorted = nodes.OrderBy(n => n.IsLeaf ? 1 : 0)
-                              .ThenBy(n => n.Frame?.LineNumber ?? int.MaxValue)
-                              .ThenBy(n => n.DisplayText)
-                              .ToList();
+            if (nodes == null || nodes.Count == 0)
+                return;
+
+            var sorted = nodes[0].Parent == null
+                ? nodes.OrderBy(n => n.TreeRootOrder).ToList()
+                : nodes.OrderBy(n => n.IsLeaf ? 1 : 0)
+                       .ThenBy(n => n.Frame?.LineNumber ?? int.MaxValue)
+                       .ThenBy(n => n.DisplayText)
+                       .ToList();
 
             nodes.Clear();
             foreach (var node in sorted)

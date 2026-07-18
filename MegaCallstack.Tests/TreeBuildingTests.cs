@@ -235,16 +235,82 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
 
-            var callstack1 = CreateTestCallstack("file1.cs", "RootA", "Child1");
-            var callstack2 = CreateTestCallstack("file2.cs", "RootB", "Child2");
+            var callstack1 = CreateTestCallstack("file2.cs", "RootB", "Child2");
+            var callstack2 = CreateTestCallstack("file1.cs", "RootA", "Child1");
             AddOrUpdateCallstack(session, callstack1);
             AddOrUpdateCallstack(session, callstack2);
 
             var nodes = builder.BuildTreeNodes(session);
 
             Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual("RootB", nodes[0].DisplayText);
+            Assert.AreEqual("RootA", nodes[1].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RootOrder_NotSortedByLineNumber()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+
+            var callstack1 = CreateTestCallstack("file1.cs", "RootB");
+            callstack1.Frames[0].LineNumber = 100;
+            var callstack2 = CreateTestCallstack("file2.cs", "RootA");
+            callstack2.Frames[0].LineNumber = 10;
+            AddOrUpdateCallstack(session, callstack1);
+            AddOrUpdateCallstack(session, callstack2);
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual("RootB", nodes[0].DisplayText);
+            Assert.AreEqual("RootA", nodes[1].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RootReplacement_PreservesOriginalRootOrder()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+
+            var callstack1 = CreateTestCallstack("file1.cs", "RootA", "Child1");
+            var callstack2 = CreateTestCallstack("file2.cs", "RootB", "Child2");
+            AddOrUpdateCallstack(session, callstack1);
+            AddOrUpdateCallstack(session, callstack2);
+
+            var replacement = CreateTestCallstack("file1.cs", "RootA", "Child1");
+            replacement.Frames[1].LineContent = "changed";
+            AddOrUpdateCallstack(session, replacement);
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.AreEqual(2, nodes.Count);
             Assert.AreEqual("RootA", nodes[0].DisplayText);
             Assert.AreEqual("RootB", nodes[1].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_ChildrenStillSortedByLineNumber()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+
+            var callstack1 = CreateTestCallstack("file1.cs", "RootA", "FuncB");
+            callstack1.Frames[1].LineNumber = 30;
+
+            var callstack2 = CreateTestCallstack("file2.cs", "RootA", "FuncA");
+            callstack2.Frames[1].LineNumber = 10;
+
+            AddOrUpdateCallstack(session, callstack1);
+            AddOrUpdateCallstack(session, callstack2);
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.AreEqual(1, nodes.Count);
+            var rootChildren = nodes[0].Children;
+            Assert.AreEqual(2, rootChildren.Count);
+            Assert.AreEqual("FuncA", rootChildren[0].DisplayText);
+            Assert.AreEqual("FuncB", rootChildren[1].DisplayText);
         }
 
         [TestMethod]
