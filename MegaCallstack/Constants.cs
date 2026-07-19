@@ -17,13 +17,13 @@ namespace MegaCallstack
         /// solution's files. Bounds how many distinct project roots are used
         /// when deciding whether a stack frame is user code.
         /// </summary>
-        public const int MaxUserCodeRoots = 5;
+        public const int MaxUserCodeRoots = 8;
 
         /// <summary>
         /// Safety cap on the number of file paths walked from the solution's
         /// EnvDTE project tree before running root detection, so very large
         /// solutions don't stall the UI thread enumeration.
         /// </summary>
-        public const int MaxSolutionFilesToScan = 50000;
+        public const int MaxSolutionFilesToScan = 100000;
     }
 }
