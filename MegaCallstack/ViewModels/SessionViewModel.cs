@@ -34,11 +34,11 @@ namespace MegaCallstack.ViewModels
         private int _currentMatchIndex = -1;
         private bool _isTreeViewMode = true;
         private string _activeSessionName;
-        private bool _isRenaming;
-        private string _renameText;
         private CallstackSession _activeSession;
         private CallstackSession _selectedSession;
         private string _sessionFilterText;
+        private bool _isRenamingSelectedSession;
+        private string _renameSelectedSessionText;
 
         public SolutionInfo SolutionInfo => _solutionInfo;
         public CallstackSession ActiveSession => _activeSession;
@@ -86,11 +86,11 @@ namespace MegaCallstack.ViewModels
             SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
             ResetActiveSessionCommand = new RelayCommand(ExecuteResetActiveSession);
             ActivateSessionCommand = new RelayCommand<CallstackSession>(ExecuteActivateSession);
-            StartRenameCommand = new RelayCommand(ExecuteStartRename);
-            ConfirmRenameCommand = new RelayCommand(ExecuteConfirmRename);
-            CancelRenameCommand = new RelayCommand(ExecuteCancelRename);
             DeleteSessionCommand = new RelayCommand<CallstackSession>(ExecuteDeleteSession);
             DeleteSelectedSessionCommand = new RelayCommand(ExecuteDeleteSelectedSession, CanDeleteSelectedSession);
+            BeginRenameSelectedSessionCommand = new RelayCommand(ExecuteBeginRenameSelectedSession, CanBeginRenameSelectedSession);
+            SaveRenameSelectedSessionCommand = new RelayCommand(ExecuteSaveRenameSelectedSession, CanSaveRenameSelectedSession);
+            CancelRenameSelectedSessionCommand = new RelayCommand(ExecuteCancelRenameSelectedSession);
 
             _captureService.DebuggerStateChanged += OnDebuggerStateChanged;
         }
@@ -106,15 +106,34 @@ namespace MegaCallstack.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
-        public Task LoadDataAsync()
+        public async Task LoadDataAsync()
         {
             _activeSession = null;
             ActiveSessionName = string.Empty;
 
+            var loaded = await _repository.LoadDataAsync();
+            SyncSessionData(loaded);
+
+            ResolvePreviousSession();
+            await _repository.SavePreviousSessionIdAsync(_sessionData.PreviousSessionId);
+
             NotifyHomePageProperties();
             RefreshTreeNodes();
             RefreshSessionsList();
-            return Task.CompletedTask;
+        }
+
+        private void SyncSessionData(SolutionSessionData loaded)
+        {
+            if (loaded == null)
+                return;
+
+            if (!ReferenceEquals(_sessionData, loaded))
+            {
+                _sessionData.Sessions.Clear();
+                foreach (var session in loaded.Sessions)
+                    _sessionData.Sessions.Add(session);
+                _sessionData.PreviousSessionId = loaded.PreviousSessionId;
+            }
         }
 
         public ObservableCollection<TreeViewNode> TreeNodes
@@ -169,16 +188,24 @@ namespace MegaCallstack.ViewModels
                 OnPropertyChanged(nameof(IsSessionViewMode));
                 OnPropertyChanged(nameof(IsHomePageVisible));
                 OnPropertyChanged(nameof(IsTreeViewContentVisible));
+                OnPropertyChanged(nameof(IsSessionListRenameActive));
+                OnPropertyChanged(nameof(IsSessionNameStatusVisible));
             }
         }
 
         public bool IsSessionViewMode => !IsTreeViewMode;
+
+        public bool IsSessionListRenameActive => IsSessionViewMode && IsRenamingSelectedSession;
+
+        public bool IsSessionNameStatusVisible => IsSessionViewMode && !IsSessionListRenameActive;
 
         public string ActiveSessionName
         {
             get => _activeSessionName;
             set { _activeSessionName = value; OnPropertyChanged(); }
         }
+
+        public string SelectedSessionName => SelectedSession?.Name ?? string.Empty;
 
         public bool HasActiveSession => _activeSession != null;
 
@@ -212,19 +239,36 @@ namespace MegaCallstack.ViewModels
         public CallstackSession SelectedSession
         {
             get => _selectedSession;
-            set { _selectedSession = value; OnPropertyChanged(); }
+            set
+            {
+                if (_selectedSession != value)
+                {
+                    _selectedSession = value;
+                    if (_isRenamingSelectedSession && _selectedSession != null)
+                        _renameSelectedSessionText = _selectedSession.Name;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(SelectedSessionName));
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
         }
 
-        public bool IsRenaming
+        public bool IsRenamingSelectedSession
         {
-            get => _isRenaming;
-            set { _isRenaming = value; OnPropertyChanged(); }
+            get => _isRenamingSelectedSession;
+            set
+            {
+                _isRenamingSelectedSession = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsSessionListRenameActive));
+                OnPropertyChanged(nameof(IsSessionNameStatusVisible));
+            }
         }
 
-        public string RenameText
+        public string RenameSelectedSessionText
         {
-            get => _renameText;
-            set { _renameText = value; OnPropertyChanged(); }
+            get => _renameSelectedSessionText;
+            set { _renameSelectedSessionText = value; OnPropertyChanged(); }
         }
 
         public string SessionFilterText
@@ -257,11 +301,12 @@ namespace MegaCallstack.ViewModels
         public ICommand SwitchToTreeViewCommand { get; }
         public ICommand ResetActiveSessionCommand { get; }
         public ICommand ActivateSessionCommand { get; }
-        public ICommand StartRenameCommand { get; }
-        public ICommand ConfirmRenameCommand { get; }
-        public ICommand CancelRenameCommand { get; }
         public ICommand DeleteSessionCommand { get; }
         public ICommand DeleteSelectedSessionCommand { get; }
+        public ICommand BeginRenameSelectedSessionCommand { get; }
+        public ICommand SaveRenameSelectedSessionCommand { get; }
+        public ICommand CancelRenameSelectedSessionCommand { get; }
+
 
         private void NotifyHomePageProperties()
         {
@@ -273,6 +318,23 @@ namespace MegaCallstack.ViewModels
             OnPropertyChanged(nameof(IsHomePageVisible));
             OnPropertyChanged(nameof(IsTreeViewContentVisible));
             OnPropertyChanged(nameof(CaptureButtonTooltip));
+        }
+
+        private void ResolvePreviousSession()
+        {
+            var previousId = _sessionData.PreviousSessionId;
+
+            if (!string.IsNullOrEmpty(previousId) &&
+                _sessionData.Sessions.Any(s => s.Id == previousId))
+            {
+                return;
+            }
+
+            var fallback = _sessionData.Sessions
+                .OrderByDescending(s => s.CreatedTime)
+                .FirstOrDefault();
+
+            _sessionData.PreviousSessionId = fallback?.Id;
         }
 
         public void RefreshTreeNodes()
@@ -289,8 +351,12 @@ namespace MegaCallstack.ViewModels
         private void RefreshSessionsList()
         {
             Sessions.Clear();
-            foreach (var session in _sessionData.Sessions)
+            foreach (var session in _sessionData.Sessions.OrderByDescending(s => s.CreatedTime))
                 Sessions.Add(session);
+
+            var activeId = _activeSession?.Id;
+            foreach (var session in _sessionData.Sessions)
+                session.IsActive = session.Id == activeId;
 
             OnPropertyChanged(nameof(HasAnySessions));
             OnPropertyChanged(nameof(PreviousSession));
@@ -631,11 +697,26 @@ namespace MegaCallstack.ViewModels
         private void ExecuteSwitchToSessionView()
         {
             IsTreeViewMode = false;
+            if (_sessionData.Sessions.Count == 0)
+            {
+                var loaded = _repository.LoadDataAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+                SyncSessionData(loaded);
+            }
             RefreshSessionsList();
+            if (SelectedSession == null && FilteredSessions.Count > 0)
+            {
+                var active = FilteredSessions.FirstOrDefault(s => s.IsActive)
+                             ?? FilteredSessions.FirstOrDefault(s => s.Id == _sessionData.PreviousSessionId)
+                             ?? FilteredSessions[0];
+                SelectedSession = active;
+            }
         }
+
+        internal void TriggerSwitchToSessionView() => ExecuteSwitchToSessionView();
 
         private void ExecuteSwitchToTreeView()
         {
+            IsRenamingSelectedSession = false;
             IsTreeViewMode = true;
         }
 
@@ -643,6 +724,9 @@ namespace MegaCallstack.ViewModels
         {
             _activeSession = null;
             ActiveSessionName = string.Empty;
+            _sessionData.PreviousSessionId = null;
+            ResolvePreviousSession();
+            _repository.SavePreviousSessionIdAsync(_sessionData.PreviousSessionId).ConfigureAwait(false);
             NotifyHomePageProperties();
             RefreshTreeNodes();
             RefreshSessionsList();
@@ -669,45 +753,73 @@ namespace MegaCallstack.ViewModels
             IsTreeViewMode = true;
         }
 
-        private void ExecuteStartRename()
+        private void ExecuteBeginRenameSelectedSession()
         {
-            RenameText = ActiveSessionName;
-            IsRenaming = true;
+            if (_selectedSession == null)
+                return;
+
+            RenameSelectedSessionText = _selectedSession.Name;
+            IsRenamingSelectedSession = true;
         }
 
-        private async void ExecuteConfirmRename()
+        internal void TriggerBeginRenameSelectedSession() => ExecuteBeginRenameSelectedSession();
+
+        private bool CanBeginRenameSelectedSession()
         {
-            if (_activeSession != null && !string.IsNullOrWhiteSpace(RenameText))
-            {
-                _activeSession.Name = RenameText;
-                ActiveSessionName = RenameText;
-                await _repository.SaveSessionMetadataAsync(_activeSession);
-                RefreshSessionsList();
-            }
-            IsRenaming = false;
+            return _selectedSession != null;
         }
 
-        private void ExecuteCancelRename()
+        private async void ExecuteSaveRenameSelectedSession()
         {
-            IsRenaming = false;
+            if (_selectedSession == null || string.IsNullOrWhiteSpace(RenameSelectedSessionText))
+                return;
+
+            var renamedSession = _selectedSession;
+            renamedSession.Name = RenameSelectedSessionText.Trim();
+            await _repository.SaveSessionMetadataAsync(renamedSession);
+            IsRenamingSelectedSession = false;
+            if (_activeSession == renamedSession)
+                ActiveSessionName = renamedSession.Name;
+            RefreshSessionsList();
+            SelectedSession = renamedSession;
         }
+
+        internal void TriggerSaveRenameSelectedSession() => ExecuteSaveRenameSelectedSession();
+
+        private bool CanSaveRenameSelectedSession()
+        {
+            return !string.IsNullOrWhiteSpace(RenameSelectedSessionText);
+        }
+
+        private void ExecuteCancelRenameSelectedSession()
+        {
+            IsRenamingSelectedSession = false;
+            RenameSelectedSessionText = _selectedSession?.Name ?? string.Empty;
+        }
+
+        internal void TriggerCancelRenameSelectedSession() => ExecuteCancelRenameSelectedSession();
 
         private void ExecuteDeleteSession(CallstackSession session)
         {
             if (session == null)
                 return;
 
+            var wasActive = _activeSession == session;
+
             _sessionData.Sessions.Remove(session);
             DeleteSessionFolder(session);
 
-            if (_activeSession == session)
+            if (wasActive)
             {
                 _activeSession = null;
                 ActiveSessionName = string.Empty;
-                NotifyHomePageProperties();
-                RefreshTreeNodes();
             }
 
+            ResolvePreviousSession();
+            _repository.SavePreviousSessionIdAsync(_sessionData.PreviousSessionId).ConfigureAwait(false);
+
+            NotifyHomePageProperties();
+            RefreshTreeNodes();
             RefreshSessionsList();
         }
 
@@ -741,7 +853,12 @@ namespace MegaCallstack.ViewModels
             ExecuteDeleteSession(_selectedSession);
             _selectedSession = null;
             OnPropertyChanged(nameof(SelectedSession));
+            OnPropertyChanged(nameof(SelectedSessionName));
+            CommandManager.InvalidateRequerySuggested();
         }
+
+        internal void TriggerDeleteSelectedSession() => ExecuteDeleteSelectedSession();
+        internal void TriggerResetActiveSession() => ExecuteResetActiveSession();
 
         public CallstackSession CreateSession(string name)
         {
@@ -756,6 +873,10 @@ namespace MegaCallstack.ViewModels
         public void SetActiveSession(CallstackSession session)
         {
             _sessionData.PreviousSessionId = session?.Id;
+            _activeSession = session;
+            ActiveSessionName = session?.Name ?? string.Empty;
+            foreach (var s in _sessionData.Sessions)
+                s.IsActive = s.Id == session?.Id;
             _repository.SavePreviousSessionIdAsync(_sessionData.PreviousSessionId).ConfigureAwait(false);
         }
 

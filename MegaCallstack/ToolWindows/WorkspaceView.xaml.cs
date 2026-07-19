@@ -123,9 +123,9 @@ namespace MegaCallstack.ToolWindows
         private void RenameTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
-                _viewModel?.ConfirmRenameCommand.Execute(null);
+                _viewModel?.SaveRenameSelectedSessionCommand.Execute(null);
             else if (e.Key == Key.Escape)
-                _viewModel?.CancelRenameCommand.Execute(null);
+                _viewModel?.CancelRenameSelectedSessionCommand.Execute(null);
         }
 
         private void DeleteSelectedSession_Click(object sender, RoutedEventArgs e)
@@ -141,6 +141,27 @@ namespace MegaCallstack.ToolWindows
 
             if (result == MessageBoxResult.Yes)
                 _viewModel.DeleteSelectedSessionCommand.Execute(null);
+        }
+
+        private void ActivateSessionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is CallstackSession session)
+                _viewModel?.ActivateSessionCommand.Execute(session);
+        }
+
+        private void DeleteSessionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is CallstackSession session)
+            {
+                var result = MessageBox.Show(
+                    $"Are you sure you want to delete session '{session.Name}'?",
+                    "Confirm Delete",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                    _viewModel?.DeleteSessionCommand.Execute(session);
+            }
         }
 
         private void SessionViewContent_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

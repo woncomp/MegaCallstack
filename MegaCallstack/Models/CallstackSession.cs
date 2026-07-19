@@ -32,6 +32,9 @@ namespace MegaCallstack.Models
         [JsonIgnore]
         public bool IsLoaded { get; set; }
 
+        [JsonIgnore]
+        public bool IsActive { get; set; }
+
         public CallstackSession()
         {
             Id = Guid.NewGuid().ToString();

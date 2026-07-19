@@ -254,6 +254,14 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SessionActionButtonStyle" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+        </Style>
     </UserControl.Resources>
 
     <Grid Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
@@ -367,15 +375,17 @@
             <!-- Home page shown when no active session is available -->
             <local:HomePageControl Visibility="{Binding IsHomePageVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
 
-            <!-- Session View content -->
+                <!-- Session View content -->
             <Grid Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
+
                 <ListBox x:Name="SessionViewContent"
                          Grid.Column="0"
+                         Grid.ColumnSpan="2"
                          Background="Transparent"
                          BorderThickness="0"
                          ItemsSource="{Binding FilteredSessions}"
@@ -385,27 +395,52 @@
                          MouseDoubleClick="SessionViewContent_MouseDoubleClick">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Margin="4">
-                                <TextBlock Text="{Binding Name}"
-                                           Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                                           FontSize="14"/>
-                                <TextBlock Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                                           Opacity="0.6" FontSize="11"
-                                           Text="{Binding CreatedTime, StringFormat='Created: {0:yyyy-MM-dd HH:mm}'}"/>
-                            </StackPanel>
+                            <Grid x:Name="SessionItemRoot">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="4">
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                                               FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                                                   Opacity="0.6" FontSize="11"
+                                                   Text="{Binding CreatedTime, StringFormat='Created: {0:yyyy-MM-dd HH:mm}'}"/>
+                                        <vsimg:CrispImage Width="16" Height="16" Margin="4,0,0,0"
+                                                          Moniker="{x:Static vscat:KnownMonikers.StatusOK}"
+                                                          ToolTip="Active session"
+                                                          Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Button x:Name="ActivateButton" Grid.Column="1" Style="{StaticResource SessionActionButtonStyle}"
+                                        Tag="{Binding}"
+                                        Click="ActivateSessionButton_Click"
+                                        ToolTip="Activate session">
+                                    <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Play}" Width="16" Height="16"/>
+                                </Button>
+                                <Button x:Name="DeleteButton" Grid.Column="2" Style="{StaticResource SessionActionButtonStyle}"
+                                        Tag="{Binding}"
+                                        Click="DeleteSessionButton_Click"
+                                        ToolTip="Delete session">
+                                    <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Cancel}" Width="16" Height="16"/>
+                                </Button>
+                            </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                    <Setter TargetName="ActivateButton" Property="Opacity" Value="1"/>
+                                    <Setter TargetName="DeleteButton" Property="Opacity" Value="1"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- Delete button panel -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="4,0,0,0"
-                            Visibility="{Binding SelectedSession, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
-                    <Button Style="{StaticResource ToolbarButton}" Padding="4,2"
-                            Click="DeleteSelectedSession_Click"
-                            ToolTip="Delete selected session">
-                        <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Cancel}" />
-                    </Button>
-                </StackPanel>
+                <!-- Delete button panel (removed) -->
             </Grid>
         </Grid>
 
@@ -421,23 +456,59 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Left: session name -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Session: "
+                <Grid Grid.Column="0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Session: "
                                Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding ActiveSessionName}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ActiveSessionName}"
                                Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+
+                    <TextBlock Grid.Column="0" Text="Selected: "
+                               Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsSessionNameStatusVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding SelectedSessionName}"
+                               Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding IsSessionNameStatusVisible, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+
+                    <TextBox Grid.Column="0" Grid.ColumnSpan="2" x:Name="RenameTextBox" Style="{StaticResource SearchTextBox}"
+                             HorizontalAlignment="Stretch"
+                             Text="{Binding RenameSelectedSessionText, UpdateSourceTrigger=PropertyChanged}"
+                             Visibility="{Binding IsSessionListRenameActive, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                             KeyDown="RenameTextBox_KeyDown"/>
+                </Grid>
 
                 <!-- Right: buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                        <Button Content="Rename" Style="{StaticResource ToolbarButton}"
+                                Command="{Binding BeginRenameSelectedSessionCommand}"
+                                Visibility="{Binding IsSessionListRenameActive, Converter={StaticResource InverseBoolToVis}, FallbackValue=Collapsed}"/>
+                        <Button Content="Back" Style="{StaticResource ToolbarButton}"
+                                Command="{Binding SwitchToTreeViewCommand}"
+                                Visibility="{Binding IsSessionListRenameActive, Converter={StaticResource InverseBoolToVis}, FallbackValue=Collapsed}"/>
+
+                        <Button Content="Save" Style="{StaticResource ToolbarButton}"
+                                Command="{Binding SaveRenameSelectedSessionCommand}"
+                                Visibility="{Binding IsSessionListRenameActive, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                        <Button Content="Cancel" Style="{StaticResource ToolbarButton}"
+                                Command="{Binding CancelRenameSelectedSessionCommand}"
+                                Visibility="{Binding IsSessionListRenameActive, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                    </StackPanel>
+
                     <Button Content="Sessions" Style="{StaticResource ToolbarButton}"
                             Command="{Binding SwitchToSessionViewCommand}"
                             Visibility="{Binding IsTreeViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
-                    <Button Content="Trees" Style="{StaticResource ToolbarButton}"
-                            Command="{Binding SwitchToTreeViewCommand}"
-                            Visibility="{Binding IsSessionViewMode, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
                 </StackPanel>
             </Grid>
         </Border>

@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MegaCallstack.Models;
 using MegaCallstack.Services;
+using MegaCallstack.ViewModels;
 using Newtonsoft.Json;
 
 namespace MegaCallstack.Tests
@@ -241,6 +243,7 @@ namespace MegaCallstack.Tests
             Assert.IsTrue(File.Exists(Path.Combine(folder, Constants.SessionFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.CallstacksFileName)));
             Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.StateFileName)));
+            Assert.IsFalse(File.Exists(Path.Combine(folder, Constants.NotesFileName)));
         }
 
         [TestMethod]
@@ -307,20 +310,195 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
-        public async Task DeleteSession_RemovesSessionAndFolder()
+        public void Sessions_AreSortedByCreatedTimeDescending()
+        {
+            var oldest = CreateSession("Oldest");
+            oldest.CreatedTime = new DateTime(2020, 1, 1);
+            var middle = CreateSession("Middle");
+            middle.CreatedTime = new DateTime(2021, 6, 15);
+            var newest = CreateSession("Newest");
+            newest.CreatedTime = new DateTime(2022, 12, 31);
+
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+
+            Assert.AreEqual(3, viewModel.FilteredSessions.Count);
+            Assert.AreEqual("Newest", viewModel.FilteredSessions[0].Name);
+            Assert.AreEqual("Middle", viewModel.FilteredSessions[1].Name);
+            Assert.AreEqual("Oldest", viewModel.FilteredSessions[2].Name);
+        }
+
+        [TestMethod]
+        public void SessionList_MarksActiveSessionAsActive()
+        {
+            var session1 = CreateSession("One");
+            var session2 = CreateSession("Two");
+
+            var viewModel = CreateViewModel();
+            viewModel.SetActiveSession(session1);
+            viewModel.TriggerSwitchToSessionView();
+
+            Assert.IsTrue(viewModel.FilteredSessions.First(s => s.Id == session1.Id).IsActive);
+            Assert.IsFalse(viewModel.FilteredSessions.First(s => s.Id == session2.Id).IsActive);
+        }
+
+        [TestMethod]
+        public async Task RenameSelectedSession_UpdatesNameAndPersists()
+        {
+            var session = CreateSession("OldName");
+            await _repository.SaveSessionMetadataAsync(session);
+
+            var viewModel = CreateViewModel();
+            await viewModel.LoadDataAsync();
+            viewModel.TriggerSwitchToSessionView();
+            var loadedSession = viewModel.FilteredSessions.First(s => s.Id == session.Id);
+            viewModel.SelectedSession = loadedSession;
+            viewModel.RenameSelectedSessionText = "Renamed";
+            viewModel.TriggerSaveRenameSelectedSession();
+
+            Assert.AreEqual("Renamed", loadedSession.Name);
+
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+            var reloadedSession = loaded.Sessions.FirstOrDefault(s => s.Id == session.Id);
+            Assert.IsNotNull(reloadedSession);
+            Assert.AreEqual("Renamed", reloadedSession.Name);
+        }
+
+        [TestMethod]
+        public void RenameSelectedSession_CancelRestoresOriginalName()
+        {
+            var session = CreateSession("Original");
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.SelectedSession = viewModel.FilteredSessions.First(s => s.Id == session.Id);
+            viewModel.RenameSelectedSessionText = "Changed";
+
+            viewModel.TriggerCancelRenameSelectedSession();
+
+            Assert.AreEqual("Original", session.Name);
+            Assert.IsFalse(viewModel.IsRenamingSelectedSession);
+        }
+
+        [TestMethod]
+        public void DeleteSelectedSession_RemovesSessionAndFolder()
         {
             var session = CreateSession("TestSession");
-            await _repository.SaveSessionMetadataAsync(session);
+            _repository.SaveSessionMetadataAsync(session).Wait();
 
             var folder = _repository.GetSessionFolderPath(session);
             Assert.IsTrue(Directory.Exists(folder));
 
-            _sessionData.Sessions.Remove(session);
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, true);
+            var viewModel = CreateViewModel();
+            viewModel.LoadDataAsync().Wait();
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.SelectedSession = viewModel.FilteredSessions.First(s => s.Id == session.Id);
+            viewModel.TriggerDeleteSelectedSession();
 
             Assert.AreEqual(0, _sessionData.Sessions.Count);
             Assert.IsFalse(Directory.Exists(folder));
+            Assert.IsNull(viewModel.SelectedSession);
+        }
+
+        [TestMethod]
+        public void DeleteActiveSession_KeepsActiveNullButResolvesPreviousFallback()
+        {
+            var older = CreateSession("Older");
+            older.CreatedTime = new DateTime(2020, 1, 1);
+            var newer = CreateSession("Newer");
+            newer.CreatedTime = new DateTime(2021, 6, 15);
+
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.SelectedSession = viewModel.FilteredSessions.First(s => s.Id == older.Id);
+
+            viewModel.SetActiveSession(older);
+
+            viewModel.TriggerDeleteSelectedSession();
+
+            Assert.IsNull(viewModel.ActiveSession);
+            Assert.AreEqual(newer.Id, _sessionData.PreviousSessionId);
+            Assert.IsTrue(viewModel.CanResumePreviousSession);
+            Assert.AreEqual("Newer", viewModel.PreviousSessionName);
+            Assert.IsFalse(viewModel.FilteredSessions.Any(s => s.IsActive));
+
+            var switchToTreeMethod = typeof(SessionViewModel).GetMethod("ExecuteSwitchToTreeView", BindingFlags.NonPublic | BindingFlags.Instance);
+            switchToTreeMethod.Invoke(viewModel, null);
+
+            Assert.IsTrue(viewModel.IsHomePageVisible);
+        }
+
+        [TestMethod]
+        public void DeleteNonActivePreviousSession_ResolvesFallback()
+        {
+            var older = CreateSession("Older");
+            older.CreatedTime = new DateTime(2020, 1, 1);
+            var newer = CreateSession("Newer");
+            newer.CreatedTime = new DateTime(2021, 6, 15);
+            _sessionData.PreviousSessionId = older.Id;
+
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.SelectedSession = viewModel.FilteredSessions.First(s => s.Id == older.Id);
+            viewModel.TriggerDeleteSelectedSession();
+
+            Assert.AreEqual(newer.Id, _sessionData.PreviousSessionId);
+            Assert.IsTrue(viewModel.CanResumePreviousSession);
+            Assert.AreEqual("Newer", viewModel.PreviousSessionName);
+        }
+
+        [TestMethod]
+        public void DeleteOnlySession_ClearsPreviousSession()
+        {
+            var session = CreateSession("Only");
+            _sessionData.PreviousSessionId = session.Id;
+
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.SelectedSession = viewModel.FilteredSessions.First(s => s.Id == session.Id);
+            viewModel.TriggerDeleteSelectedSession();
+
+            Assert.IsNull(_sessionData.PreviousSessionId);
+            Assert.IsFalse(viewModel.CanResumePreviousSession);
+            Assert.IsNull(viewModel.PreviousSession);
+        }
+
+        [TestMethod]
+        public async Task LoadDataAsync_ResolvesStalePreviousSessionId()
+        {
+            var session1 = CreateSession("One");
+            session1.CreatedTime = new DateTime(2020, 1, 1);
+            var session2 = CreateSession("Two");
+            session2.CreatedTime = new DateTime(2021, 6, 15);
+
+            await _repository.SaveSessionMetadataAsync(session1);
+            await _repository.SaveSessionMetadataAsync(session2);
+            await _repository.SavePreviousSessionIdAsync("stale-id");
+
+            var viewModel = CreateViewModel();
+            await viewModel.LoadDataAsync();
+
+            Assert.AreEqual(session2.Id, _sessionData.PreviousSessionId);
+            Assert.IsTrue(viewModel.CanResumePreviousSession);
+            Assert.AreEqual("Two", viewModel.PreviousSessionName);
+        }
+
+        [TestMethod]
+        public void ResetActiveSession_KeepsActiveNullButResolvesPreviousFallback()
+        {
+            var older = CreateSession("Older");
+            older.CreatedTime = new DateTime(2020, 1, 1);
+            var newer = CreateSession("Newer");
+            newer.CreatedTime = new DateTime(2021, 6, 15);
+
+            var viewModel = CreateViewModel();
+            viewModel.SetActiveSession(older);
+            viewModel.TriggerSwitchToSessionView();
+            viewModel.TriggerResetActiveSession();
+
+            Assert.IsNull(viewModel.ActiveSession);
+            Assert.AreEqual(newer.Id, _sessionData.PreviousSessionId);
+            Assert.AreEqual("Newer", viewModel.PreviousSessionName);
+            Assert.IsFalse(viewModel.FilteredSessions.Any(s => s.IsActive));
         }
 
         [TestMethod]
@@ -496,6 +674,20 @@ namespace MegaCallstack.Tests
             await resolver.ResolveSessionAsync(session);
 
             Assert.AreEqual(42, frame.LineNumber);
+        }
+
+        private SessionViewModel CreateViewModel()
+        {
+            return new SessionViewModel(
+                _solutionInfo,
+                _sessionData,
+                _repository,
+                _captureService,
+                null,
+                _treeBuilder,
+                null,
+                null,
+                null);
         }
 
         private CallstackSession CreateSession(string name)
