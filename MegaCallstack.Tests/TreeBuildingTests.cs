@@ -139,7 +139,7 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main.cs", "main");
-            callstack.Frames[0].LineContent = "This is a very long line that should be truncated";
+            callstack.Frames[0].LineContent = new string('x', Constants.LeafNodeDisplayMaxLength + 10);
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);

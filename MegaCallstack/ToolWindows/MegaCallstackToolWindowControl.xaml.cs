@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -61,7 +62,10 @@ namespace MegaCallstack.ToolWindows
             Logger.Log($"ToolWindow: Creating workspace for {info.FullPath}");
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
-            var captureService = new CallstackCaptureService(dte, info.UserCodeRoots);
+            string diagnosticsDirectory = Path.Combine(info.DataDirectory, Constants.DiagnosticsFolderName);
+            var diagnostics = new FuzzyBookmarkFileDiagnostics(diagnosticsDirectory);
+            var bookmarkEngine = new FuzzyBookmarkEngine(diagnostics);
+            var captureService = new CallstackCaptureService(dte, bookmarkEngine);
             var treeBuilder = new CallstackTreeBuilder();
             var repository = new SessionRepository(info);
             var window = Window.GetWindow(this);

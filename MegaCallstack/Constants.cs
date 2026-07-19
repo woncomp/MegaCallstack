@@ -9,6 +9,7 @@ namespace MegaCallstack
         public const string StateFileName = "state.json";
         public const string NotesFileName = "notes.json";
         public const string ActiveSessionFileName = "active_session.json";
+        public const string DiagnosticsFolderName = "Diagnostics";
         public const int LeafNodeDisplayMaxLength = 120;
 
         /// <summary>

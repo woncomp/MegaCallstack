@@ -70,6 +70,9 @@
     <Compile Include="Services\SolutionWorkspace.cs" />
     <Compile Include="Services\SolutionRootDetector.cs" />
     <Compile Include="Services\FuzzyBookmarkEngine.cs" />
+    <Compile Include="Services\IFuzzyBookmarkDiagnostics.cs" />
+    <Compile Include="Services\FuzzyBookmarkDiagnosticsModels.cs" />
+    <Compile Include="Services\FuzzyBookmarkFileDiagnostics.cs" />
     <Compile Include="Dialogs\ColorPickerDialog.xaml.cs">
       <DependentUpon>ColorPickerDialog.xaml</DependentUpon>
     </Compile>

@@ -45,6 +45,7 @@
     <Compile Include="TreeViewNodeTests.cs" />
     <Compile Include="ScopeParserTests.cs" />
     <Compile Include="FuzzyBookmarkEngineTests.cs" />
+    <Compile Include="FuzzyBookmarkDiagnosticsTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MegaCallstack\MegaCallstack.csproj">
