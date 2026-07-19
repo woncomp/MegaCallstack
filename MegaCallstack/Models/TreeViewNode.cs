@@ -51,6 +51,12 @@ namespace MegaCallstack.Models
             }
         }
 
+        public bool IsColorExplicitlySet
+        {
+            get => _isColorExplicitlySet;
+            set => _isColorExplicitlySet = value;
+        }
+
         public Brush DisplayForeground
         {
             get => _displayForeground;

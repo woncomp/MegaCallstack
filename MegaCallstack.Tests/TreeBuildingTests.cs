@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MegaCallstack.Models;
 using MegaCallstack.Services;
@@ -543,6 +544,73 @@ namespace MegaCallstack.Tests
                 });
             }
             return new CallstackData(frames);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RestoresSavedColorOnFrame()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            AddOrUpdateCallstack(session, callstack);
+            session.NodeColors[callstack.Frames[1].HashCode] = "#FF0000";
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            var runNode = nodes[0].Children[0];
+            Assert.IsTrue(runNode.IsColorExplicitlySet);
+            Assert.IsNotNull(runNode.DisplayForeground);
+            Assert.AreEqual(Colors.Red, ((SolidColorBrush)runNode.DisplayForeground).Color);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RestoredColorSurvivesChildPropagation()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            AddOrUpdateCallstack(session, callstack);
+            session.NodeColors[callstack.Frames[2].HashCode] = "#0000FF";
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            var doWorkNode = nodes[0].Children[0].Children[0];
+            Assert.AreEqual(Colors.Blue, ((SolidColorBrush)doWorkNode.DisplayForeground).Color);
+            var runNode = nodes[0].Children[0];
+            Assert.AreEqual(Colors.Blue, ((SolidColorBrush)runNode.DisplayForeground).Color);
+            Assert.IsFalse(runNode.IsColorExplicitlySet);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_SavedColorOnParentOverridesChildColor()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run", "DoWork");
+            AddOrUpdateCallstack(session, callstack);
+            session.NodeColors[callstack.Frames[1].HashCode] = "#00FF00";
+            session.NodeColors[callstack.Frames[2].HashCode] = "#0000FF";
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            var runNode = nodes[0].Children[0];
+            Assert.IsTrue(runNode.IsColorExplicitlySet);
+            Assert.AreEqual(Colors.Lime, ((SolidColorBrush)runNode.DisplayForeground).Color);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_InvalidColorString_IsIgnored()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "main", "Run");
+            AddOrUpdateCallstack(session, callstack);
+            session.NodeColors[callstack.Frames[1].HashCode] = "not-a-color";
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.IsFalse(nodes[0].Children[0].IsColorExplicitlySet);
+            Assert.IsNull(nodes[0].Children[0].DisplayForeground);
         }
     }
 }

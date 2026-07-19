@@ -39,7 +39,32 @@ namespace MegaCallstack.Services
             }
 
             SortTree(nodes);
+            ApplyNodeColors(session, nodes);
             return nodes;
+        }
+
+        private void ApplyNodeColors(CallstackSession session, IList<TreeViewNode> nodes)
+        {
+            if (session == null)
+                return;
+
+            foreach (var node in nodes)
+            {
+                var key = node.NodeKey;
+                if (session.NodeColors.TryGetValue(key, out var hexColor))
+                {
+                    try
+                    {
+                        var color = (Color)ColorConverter.ConvertFromString(hexColor);
+                        node.SetColorAndPropagate(new SolidColorBrush(color));
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                ApplyNodeColors(session, node.Children);
+            }
         }
 
         public List<TreeViewNode> BuildDisplayTreeNodes(CallstackSession session, List<TreeViewNode> fullTree)
@@ -78,11 +103,6 @@ namespace MegaCallstack.Services
                     DisplayText = frame.FunctionName,
                     IsExpanded = GetExpansionState(session, frame.HashCode, true)
                 };
-
-                if (session.NodeColors.TryGetValue(frame.HashCode, out var hexColor))
-                {
-                    node.DisplayForeground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hexColor));
-                }
 
                 if (session.NodeNotes.TryGetValue(frame.HashCode, out var notes))
                 {
