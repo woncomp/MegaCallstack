@@ -84,7 +84,7 @@ namespace MegaCallstack.ViewModels
             ToggleAncestorsCommand = new RelayCommand(ExecuteToggleAncestors, CanToggleAncestors);
             SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
             SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
-            CreateSessionCommand = new RelayCommand(ExecuteCreateSession);
+            ResetActiveSessionCommand = new RelayCommand(ExecuteResetActiveSession);
             ActivateSessionCommand = new RelayCommand<CallstackSession>(ExecuteActivateSession);
             StartRenameCommand = new RelayCommand(ExecuteStartRename);
             ConfirmRenameCommand = new RelayCommand(ExecuteConfirmRename);
@@ -184,8 +184,8 @@ namespace MegaCallstack.ViewModels
 
         public CallstackSession PreviousSession
         {
-            get => _sessionData.ActiveSessionId != null
-                ? _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.ActiveSessionId)
+            get => _sessionData.PreviousSessionId != null
+                ? _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.PreviousSessionId)
                 : null;
         }
 
@@ -255,7 +255,7 @@ namespace MegaCallstack.ViewModels
         public ICommand ToggleAncestorsCommand { get; }
         public ICommand SwitchToSessionViewCommand { get; }
         public ICommand SwitchToTreeViewCommand { get; }
-        public ICommand CreateSessionCommand { get; }
+        public ICommand ResetActiveSessionCommand { get; }
         public ICommand ActivateSessionCommand { get; }
         public ICommand StartRenameCommand { get; }
         public ICommand ConfirmRenameCommand { get; }
@@ -639,29 +639,13 @@ namespace MegaCallstack.ViewModels
             IsTreeViewMode = true;
         }
 
-        private async void ExecuteCreateSession()
+        private void ExecuteResetActiveSession()
         {
-            var callstack = await _captureService.CaptureCurrentCallstackAsync();
-            if (callstack == null)
-                return;
-
-            var leafFrame = callstack.Frames.LastOrDefault();
-            var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
-            var session = CreateSession(sessionName);
-            SetActiveSession(session);
-            _activeSession = session;
-            ActiveSessionName = session.Name;
+            _activeSession = null;
+            ActiveSessionName = string.Empty;
             NotifyHomePageProperties();
-
-            await EnsureSessionLoadedAsync(session);
-
-            AddOrUpdateCallstack(session, callstack);
-            await _repository.SaveSessionMetadataAsync(session);
-            await _repository.SaveCallstacksAsync(session);
-
             RefreshTreeNodes();
             RefreshSessionsList();
-
             IsTreeViewMode = true;
         }
 
@@ -771,8 +755,8 @@ namespace MegaCallstack.ViewModels
 
         public void SetActiveSession(CallstackSession session)
         {
-            _sessionData.ActiveSessionId = session?.Id;
-            _repository.SaveActiveSessionIdAsync(_sessionData.ActiveSessionId).ConfigureAwait(false);
+            _sessionData.PreviousSessionId = session?.Id;
+            _repository.SavePreviousSessionIdAsync(_sessionData.PreviousSessionId).ConfigureAwait(false);
         }
 
         public void AddOrUpdateCallstack(CallstackSession session, CallstackData callstack)

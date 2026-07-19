@@ -109,11 +109,11 @@ namespace MegaCallstack.Tests
             await _repository.SaveSessionMetadataAsync(session1);
             await _repository.SaveSessionMetadataAsync(session2);
 
-            _sessionData.ActiveSessionId = session2.Id;
-            await _repository.SaveActiveSessionIdAsync(session2.Id);
+            _sessionData.PreviousSessionId = session2.Id;
+            await _repository.SavePreviousSessionIdAsync(session2.Id);
 
             var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
-            var active = loaded.Sessions.FirstOrDefault(s => s.Id == loaded.ActiveSessionId);
+            var active = loaded.Sessions.FirstOrDefault(s => s.Id == loaded.PreviousSessionId);
 
             Assert.IsNotNull(active);
             Assert.AreEqual(session2.Id, active.Id);
@@ -121,12 +121,42 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
-        public async Task GetActiveSession_ReturnsNullWhenNoneSet()
+        public async Task GetPreviousSession_ReturnsNullWhenNoSessions()
         {
             var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
 
-            var active = loaded.Sessions.FirstOrDefault(s => s.Id == loaded.ActiveSessionId);
-            Assert.IsNull(active);
+            Assert.IsNull(loaded.PreviousSessionId);
+        }
+
+        [TestMethod]
+        public async Task LoadPreviousSessionId_FallsBackToLastCreatedSession_WhenFileMissing()
+        {
+            var session1 = CreateSession("Session1");
+            var session2 = CreateSession("Session2");
+            session2.CreatedTime = session1.CreatedTime.AddMinutes(1);
+
+            await _repository.SaveSessionMetadataAsync(session1);
+            await _repository.SaveSessionMetadataAsync(session2);
+
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+
+            Assert.AreEqual(session2.Id, loaded.PreviousSessionId);
+        }
+
+        [TestMethod]
+        public async Task LoadPreviousSessionId_FallsBackToLastCreatedSession_WhenFileIsEmpty()
+        {
+            var session1 = CreateSession("Session1");
+            var session2 = CreateSession("Session2");
+            session2.CreatedTime = session1.CreatedTime.AddMinutes(1);
+
+            await _repository.SaveSessionMetadataAsync(session1);
+            await _repository.SaveSessionMetadataAsync(session2);
+            await _repository.SavePreviousSessionIdAsync(null);
+
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+
+            Assert.AreEqual(session2.Id, loaded.PreviousSessionId);
         }
 
         [TestMethod]

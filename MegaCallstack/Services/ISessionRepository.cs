@@ -18,7 +18,7 @@ namespace MegaCallstack.Services
         Task SaveCallstacksAsync(CallstackSession session);
         Task SaveStateAsync(CallstackSession session);
         Task SaveNotesAsync(CallstackSession session);
-        Task SaveActiveSessionIdAsync(string activeSessionId);
+        Task SavePreviousSessionIdAsync(string previousSessionId);
         string GetOrCreateSessionFolder(CallstackSession session);
         string GetSessionFolderPath(CallstackSession session);
         bool HasCallstacks(CallstackSession session);

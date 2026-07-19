@@ -57,26 +57,38 @@ namespace MegaCallstack.Services
                 }
             }
 
-            LoadActiveSessionId(data);
+            LoadPreviousSessionId(data);
             return data;
         }
 
-        private void LoadActiveSessionId(SolutionSessionData data)
+        private void LoadPreviousSessionId(SolutionSessionData data)
         {
-            var filePath = Path.Combine(SolutionInfo.DataDirectory, Constants.ActiveSessionFileName);
-            if (!File.Exists(filePath))
-                return;
-
-            try
+            var filePath = Path.Combine(SolutionInfo.DataDirectory, Constants.PreviousSessionFileName);
+            if (File.Exists(filePath))
             {
-                var json = File.ReadAllText(filePath);
-                var activeId = JsonConvert.DeserializeObject<string>(json);
-                if (!string.IsNullOrEmpty(activeId) && data.Sessions.Any(s => s.Id == activeId))
-                    data.ActiveSessionId = activeId;
+                try
+                {
+                    var json = File.ReadAllText(filePath);
+                    var previousId = JsonConvert.DeserializeObject<string>(json);
+                    if (!string.IsNullOrEmpty(previousId) && data.Sessions.Any(s => s.Id == previousId))
+                    {
+                        data.PreviousSessionId = previousId;
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("SessionRepository: Failed to load previous session id", ex);
+                }
             }
-            catch (Exception ex)
+
+            if (data.Sessions.Count > 0)
             {
-                Logger.Error("SessionRepository: Failed to load active session id", ex);
+                var lastSession = data.Sessions
+                    .OrderByDescending(s => s.CreatedTime)
+                    .FirstOrDefault();
+                if (lastSession != null)
+                    data.PreviousSessionId = lastSession.Id;
             }
         }
 
@@ -209,10 +221,10 @@ namespace MegaCallstack.Services
             await WriteJsonAsync(filePath, session.NodeNotes);
         }
 
-        public async Task SaveActiveSessionIdAsync(string activeSessionId)
+        public async Task SavePreviousSessionIdAsync(string previousSessionId)
         {
-            var filePath = Path.Combine(SolutionInfo.DataDirectory, Constants.ActiveSessionFileName);
-            await WriteJsonAsync(filePath, activeSessionId);
+            var filePath = Path.Combine(SolutionInfo.DataDirectory, Constants.PreviousSessionFileName);
+            await WriteJsonAsync(filePath, previousSessionId);
         }
 
         private async Task WriteJsonAsync(string filePath, object data)

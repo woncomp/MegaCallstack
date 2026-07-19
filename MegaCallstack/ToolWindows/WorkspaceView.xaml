@@ -302,7 +302,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Style="{StaticResource ToolbarButton}" Command="{Binding CreateSessionCommand}"
+                    <Button Grid.Column="0" Style="{StaticResource ToolbarButton}" Command="{Binding ResetActiveSessionCommand}"
                             Padding="4,2" Content="New Session"/>
                     <TextBox x:Name="SessionFilterBox" Grid.Column="1" Style="{StaticResource SearchTextBox}"
                              Margin="2,0" VerticalAlignment="Center"
