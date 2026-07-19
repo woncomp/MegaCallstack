@@ -44,9 +44,10 @@ namespace MegaCallstack.Services
                         session.Callstacks = new List<CallstackData>();
                         session.NodeColors = new Dictionary<int, string>();
                         session.CollapsedNodes = new Dictionary<int, bool>();
-                        session.HiddenAncestorNodes = new Dictionary<int, bool>();
-                        session.NodeNotes = new Dictionary<int, List<NodeNote>>();
-                        session.IsLoaded = false;
+                session.HiddenAncestorNodes = new Dictionary<int, bool>();
+                session.NodeNotes = new Dictionary<int, List<NodeNote>>();
+                session.ResolvedFileWriteTimes = new Dictionary<string, long>();
+                session.IsLoaded = false;
                         data.Sessions.Add(session);
                     }
                 }
@@ -123,12 +124,13 @@ namespace MegaCallstack.Services
             {
                 var json = await Task.Run(() => File.ReadAllText(filePath));
                 var state = JsonConvert.DeserializeObject<SessionState>(json);
-                if (state != null)
-                {
-                    session.NodeColors = state.NodeColors ?? new Dictionary<int, string>();
-                    session.CollapsedNodes = state.CollapsedNodes ?? new Dictionary<int, bool>();
-                    session.HiddenAncestorNodes = state.HiddenAncestorNodes ?? new Dictionary<int, bool>();
-                }
+                    if (state != null)
+                    {
+                        session.NodeColors = state.NodeColors ?? new Dictionary<int, string>();
+                        session.CollapsedNodes = state.CollapsedNodes ?? new Dictionary<int, bool>();
+                        session.HiddenAncestorNodes = state.HiddenAncestorNodes ?? new Dictionary<int, bool>();
+                        session.ResolvedFileWriteTimes = state.ResolvedFileWriteTimes ?? new Dictionary<string, long>();
+                    }
             }
             catch (Exception ex)
             {
@@ -191,7 +193,8 @@ namespace MegaCallstack.Services
             {
                 NodeColors = session.NodeColors,
                 CollapsedNodes = session.CollapsedNodes,
-                HiddenAncestorNodes = session.HiddenAncestorNodes
+                HiddenAncestorNodes = session.HiddenAncestorNodes,
+                ResolvedFileWriteTimes = session.ResolvedFileWriteTimes
             };
             await WriteJsonAsync(filePath, state);
         }

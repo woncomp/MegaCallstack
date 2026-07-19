@@ -110,16 +110,47 @@ namespace MegaCallstack.Services
 
         // ---------- Create ----------
 
-        public FuzzyBookmark Create(IReadOnlyList<string> lines, int lineNumber)
+        public IReadOnlyList<FuzzyBookmark> CreateAll(IEnumerable<int> lineNumbers, string filePath)
         {
-            if (lines == null) throw new ArgumentNullException(nameof(lines));
-            if (lineNumber < 1 || lineNumber > lines.Count)
-                throw new ArgumentOutOfRangeException(nameof(lineNumber));
+            if (lineNumbers == null) throw new ArgumentNullException(nameof(lineNumbers));
+            if (filePath == null) throw new ArgumentNullException(nameof(filePath));
 
-            var normalized = NormalizeAll(lines);
+            var lines = ReadAllLinesSafe(filePath);
+            if (lines == null)
+                throw new FileNotFoundException("Source file not found.", filePath);
+
+            string operationId = _diagnostics?.BeginOperation(filePath);
+            try
+            {
+                var normalized = NormalizeAll(lines);
+                var root = _parser.Parse(lines);
+                _diagnostics?.OnScopeParsed(operationId, root, lines);
+
+                var result = new List<FuzzyBookmark>();
+                foreach (int lineNumber in lineNumbers)
+                {
+                    if (lineNumber < 1 || lineNumber > lines.Length)
+                    {
+                        _diagnostics?.OnBookmarkCreated(operationId, lineNumber, null, null);
+                        result.Add(null);
+                        continue;
+                    }
+
+                    var bookmark = CreateCore(normalized, root, lineNumber);
+                    _diagnostics?.OnBookmarkCreated(operationId, lineNumber, bookmark, ScopeNodeSummary.FromNode(FindInnermostRealScope(root, lineNumber - 1)));
+                    result.Add(bookmark);
+                }
+                return result;
+            }
+            finally
+            {
+                _diagnostics?.CompleteOperation(operationId);
+            }
+        }
+
+        private FuzzyBookmark CreateCore(string[] normalized, ScopeNode root, int lineNumber)
+        {
             int idx0 = lineNumber - 1;
-
-            var root = _parser.Parse(ToArray(lines));
             var node = FindInnermostRealScope(root, idx0);
 
             var bookmark = new FuzzyBookmark
@@ -139,8 +170,8 @@ namespace MegaCallstack.Services
             else
             {
                 bookmark.ScopePath = new uint[0];
-                bookmark.Ratio = lines.Count > 1
-                    ? Clamp((double)idx0 / (lines.Count - 1), 0.0, 1.0)
+                bookmark.Ratio = normalized.Length > 1
+                    ? Clamp((double)idx0 / (normalized.Length - 1), 0.0, 1.0)
                     : 0.0;
             }
 
@@ -158,75 +189,20 @@ namespace MegaCallstack.Services
             return bookmark;
         }
 
-        public FuzzyBookmark Create(string filePath, int lineNumber)
-        {
-            var lines = ReadAllLinesSafe(filePath);
-            if (lines == null)
-                throw new FileNotFoundException("Source file not found.", filePath);
-            string operationId = _diagnostics?.BeginOperation(filePath);
-            try
-            {
-                var bookmark = Create(lines, lineNumber);
-                var root = _parser.Parse(lines);
-                _diagnostics?.OnScopeParsed(operationId, root, lines);
-                _diagnostics?.OnBookmarkCreated(operationId, lineNumber, bookmark, ScopeNodeSummary.FromNode(FindInnermostRealScope(root, lineNumber - 1)));
-                return bookmark;
-            }
-            finally
-            {
-                _diagnostics?.CompleteOperation(operationId);
-            }
-        }
-
-        // ---------- Resolve (single) ----------
-
-        public ResolveResult Resolve(FuzzyBookmark bookmark, IReadOnlyList<string> lines)
-        {
-            if (bookmark == null) throw new ArgumentNullException(nameof(bookmark));
-            if (lines == null || lines.Count == 0)
-                return new ResolveResult(0, 0.0, "NotFound");
-
-            var normalized = NormalizeAll(lines);
-            var root = _parser.Parse(ToArray(lines));
-
-            var scopeMatch = MatchScopes(bookmark.ScopePath, root);
-            double seed0 = DeriveSeed(bookmark.Ratio, scopeMatch.Node, lines.Count);
-
-            return ResolveCore(bookmark, normalized, seed0, scopeMatch, null);
-        }
-
-        public ResolveResult Resolve(FuzzyBookmark bookmark, string filePath)
-        {
-            var lines = ReadAllLinesSafe(filePath);
-            if (lines == null || lines.Length == 0)
-                return new ResolveResult(0, 0.0, "NotFound");
-            string operationId = _diagnostics?.BeginOperation(filePath);
-            try
-            {
-                var normalized = NormalizeAll(lines);
-                var root = _parser.Parse(lines);
-                _diagnostics?.OnScopeParsed(operationId, root, lines);
-
-                var scopeMatch = MatchScopes(bookmark.ScopePath, root);
-                double seed0 = DeriveSeed(bookmark.Ratio, scopeMatch.Node, lines.Length);
-
-                return ResolveCore(bookmark, normalized, seed0, scopeMatch, operationId);
-            }
-            finally
-            {
-                _diagnostics?.CompleteOperation(operationId);
-            }
-        }
+        // ---------- Resolve ----------
 
         public IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmark> bookmarks, string filePath)
         {
+            if (bookmarks == null) throw new ArgumentNullException(nameof(bookmarks));
+
             var lines = ReadAllLinesSafe(filePath);
             if (lines == null || lines.Length == 0)
                 return bookmarks.Select(_ => new ResolveResult(0, 0.0, "NotFound")).ToList();
+
             string operationId = _diagnostics?.BeginOperation(filePath);
             try
             {
-                return ResolveAll(bookmarks, (IReadOnlyList<string>)lines, operationId);
+                return ResolveAllCore(bookmarks, lines, operationId);
             }
             finally
             {
@@ -234,16 +210,13 @@ namespace MegaCallstack.Services
             }
         }
 
-        // ---------- Resolve (batch) ----------
-
-        public IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines)
+        private IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines)
         {
-            return ResolveAll(bookmarks, lines, null);
+            return ResolveAllCore(bookmarks, lines, null);
         }
 
-        private IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines, string operationId)
+        private IReadOnlyList<ResolveResult> ResolveAllCore(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines, string operationId)
         {
-            if (bookmarks == null) throw new ArgumentNullException(nameof(bookmarks));
             if (lines == null || lines.Count == 0)
                 return bookmarks.Select(_ => new ResolveResult(0, 0.0, "NotFound")).ToList();
 
@@ -251,20 +224,22 @@ namespace MegaCallstack.Services
             var root = _parser.Parse(ToArray(lines));
             _diagnostics?.OnScopeParsed(operationId, root, lines);
 
+            var resolvedDetails = _diagnostics != null ? new List<ResolveBookmarkDetails>() : null;
             var results = new List<ResolveResult>();
             foreach (var bm in bookmarks)
             {
                 if (bm == null) { results.Add(new ResolveResult(0, 0.0, "NotFound")); continue; }
                 var scopeMatch = MatchScopes(bm.ScopePath, root);
                 double seed0 = DeriveSeed(bm.Ratio, scopeMatch.Node, lines.Count);
-                results.Add(ResolveCore(bm, normalized, seed0, scopeMatch, operationId));
+                results.Add(ResolveCore(bm, normalized, seed0, scopeMatch, operationId, resolvedDetails));
             }
+            _diagnostics?.OnBookmarksResolved(operationId, resolvedDetails);
             return results;
         }
 
         // ---------- Core resolution ----------
 
-        private ResolveResult ResolveCore(FuzzyBookmark bookmark, string[] normalized, double seed0, ScopeMatch scopeMatch, string operationId)
+        private ResolveResult ResolveCore(FuzzyBookmark bookmark, string[] normalized, double seed0, ScopeMatch scopeMatch, string operationId, List<ResolveBookmarkDetails> resolvedDetails)
         {
             int lineCount = normalized.Length;
             var details = new ResolveDecisionDetails
@@ -292,7 +267,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(fullMatch.Value, scopeMatch, "ContextFull", 0.9);
                     details.Result = result;
-                    _diagnostics?.OnBookmarkResolved(operationId, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details);
                     return result;
                 }
 
@@ -307,7 +282,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(partial.Value, scopeMatch, "ContextPartial", 0.7);
                     details.Result = result;
-                    _diagnostics?.OnBookmarkResolved(operationId, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details);
                     return result;
                 }
 
@@ -317,7 +292,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(ClampLine((int)Math.Round(seed0) + 1, lineCount), scopeMatch, "Fallback", 0.1);
                     details.Result = result;
-                    _diagnostics?.OnBookmarkResolved(operationId, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details);
                     return result;
                 }
             }
@@ -333,15 +308,28 @@ namespace MegaCallstack.Services
             {
                 var result = BuildResult(fuzzyLine, scopeMatch, "Fuzzy", 0.5);
                 details.Result = result;
-                _diagnostics?.OnBookmarkResolved(operationId, bookmark, details);
+                RecordResolvedDetails(resolvedDetails, bookmark, details);
                 return result;
             }
 
             // L4: clamp fallback.
             var fallback = BuildResult(ClampLine((int)Math.Round(seed0) + 1, lineCount), scopeMatch, "Fallback", 0.1);
             details.Result = fallback;
-            _diagnostics?.OnBookmarkResolved(operationId, bookmark, details);
+            RecordResolvedDetails(resolvedDetails, bookmark, details);
             return fallback;
+        }
+
+        private static void RecordResolvedDetails(List<ResolveBookmarkDetails> resolvedDetails, FuzzyBookmark bookmark, ResolveDecisionDetails details)
+        {
+            if (resolvedDetails == null) return;
+            resolvedDetails.Add(new ResolveBookmarkDetails
+            {
+                OriginalLine = details.Result?.Line ?? 0,
+                Bookmark = bookmark,
+                Seed = details.Seed,
+                ScopeMatch = details.ScopeMatch,
+                Decision = details
+            });
         }
 
         private static ScopeMatchSummary Summarize(ScopeMatch match)

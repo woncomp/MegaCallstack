@@ -27,6 +27,9 @@ namespace MegaCallstack.Models
         public Dictionary<int, List<NodeNote>> NodeNotes { get; set; } = new Dictionary<int, List<NodeNote>>();
 
         [JsonIgnore]
+        public Dictionary<string, long> ResolvedFileWriteTimes { get; set; } = new Dictionary<string, long>();
+
+        [JsonIgnore]
         public bool IsLoaded { get; set; }
 
         public CallstackSession()

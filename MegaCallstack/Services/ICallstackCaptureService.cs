@@ -11,7 +11,6 @@ namespace MegaCallstack.Services
     public interface ICallstackCaptureService
     {
         Task<CallstackData> CaptureCurrentCallstackAsync();
-        Task<int> ResolveFrameLineNumberAsync(CallstackFrame frame);
         bool IsDebuggerInBreakMode { get; }
         event System.EventHandler DebuggerStateChanged;
     }

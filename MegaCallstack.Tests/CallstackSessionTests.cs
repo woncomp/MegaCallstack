@@ -399,7 +399,8 @@ namespace MegaCallstack.Tests
             File.WriteAllLines(path, original);
 
             var engine = new FuzzyBookmarkEngine();
-            var bookmark = engine.Create(path, 5);
+            var bookmarks = engine.CreateAll(new[] { 5 }, path);
+            var bookmark = bookmarks[0];
 
             var edited = new[]
             {
@@ -419,9 +420,11 @@ namespace MegaCallstack.Tests
                 Bookmark = bookmark
             };
 
-            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
+            var resolver = new BookmarkResolver(engine);
+            var session = new CallstackSession("Test");
+            session.Callstacks.Add(new CallstackData(new List<CallstackFrame> { frame }));
+            await resolver.ResolveSessionAsync(session);
 
-            Assert.AreEqual(6, line);
             Assert.AreEqual(6, frame.LineNumber);
         }
 
@@ -430,9 +433,13 @@ namespace MegaCallstack.Tests
         {
             var frame = new CallstackFrame("Main", "source.cs", 42);
 
-            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
+            var session = new CallstackSession("Test");
+            session.Callstacks.Add(new CallstackData(new List<CallstackFrame> { frame }));
 
-            Assert.AreEqual(42, line);
+            var resolver = new BookmarkResolver(new FuzzyBookmarkEngine());
+            await resolver.ResolveSessionAsync(session);
+
+            Assert.AreEqual(42, frame.LineNumber);
         }
 
         [TestMethod]
@@ -452,9 +459,13 @@ namespace MegaCallstack.Tests
                 Bookmark = bookmark
             };
 
-            int line = await _captureService.ResolveFrameLineNumberAsync(frame);
+            var session = new CallstackSession("Test");
+            session.Callstacks.Add(new CallstackData(new List<CallstackFrame> { frame }));
 
-            Assert.AreEqual(42, line);
+            var resolver = new BookmarkResolver(engine);
+            await resolver.ResolveSessionAsync(session);
+
+            Assert.AreEqual(42, frame.LineNumber);
         }
 
         private CallstackSession CreateSession(string name)

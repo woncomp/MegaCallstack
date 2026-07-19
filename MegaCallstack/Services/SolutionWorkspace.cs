@@ -17,6 +17,7 @@ namespace MegaCallstack.Services
     {
         private readonly ISessionRepository _repository;
         private readonly ICallstackCaptureService _captureService;
+        private readonly IBookmarkResolver _bookmarkResolver;
         private readonly ICallstackTreeBuilder _treeBuilder;
         private readonly IColorPickerService _colorPickerService;
         private readonly INoteEditorService _noteEditorService;
@@ -30,6 +31,7 @@ namespace MegaCallstack.Services
             SolutionInfo solutionInfo,
             ISessionRepository repository,
             ICallstackCaptureService captureService,
+            IBookmarkResolver bookmarkResolver,
             ICallstackTreeBuilder treeBuilder,
             IColorPickerService colorPickerService,
             INoteEditorService noteEditorService,
@@ -38,6 +40,7 @@ namespace MegaCallstack.Services
             SolutionInfo = solutionInfo ?? throw new ArgumentNullException(nameof(solutionInfo));
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _captureService = captureService ?? throw new ArgumentNullException(nameof(captureService));
+            _bookmarkResolver = bookmarkResolver;
             _treeBuilder = treeBuilder ?? throw new ArgumentNullException(nameof(treeBuilder));
             _colorPickerService = colorPickerService ?? throw new ArgumentNullException(nameof(colorPickerService));
             _noteEditorService = noteEditorService ?? throw new ArgumentNullException(nameof(noteEditorService));
@@ -52,6 +55,7 @@ namespace MegaCallstack.Services
                 SessionData,
                 _repository,
                 _captureService,
+                _bookmarkResolver,
                 _treeBuilder,
                 _colorPickerService,
                 _noteEditorService,

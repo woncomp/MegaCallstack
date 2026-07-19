@@ -17,6 +17,7 @@ namespace MegaCallstack.Services
         public FuzzyBookmark Bookmark { get; set; }
         public double Seed { get; set; }
         public ScopeMatchSummary ScopeMatch { get; set; }
+        public ResolveDecisionDetails Decision { get; set; }
     }
 
     public sealed class ResolveDecisionDetails
@@ -123,12 +124,19 @@ namespace MegaCallstack.Services
             var sb = new StringBuilder();
             sb.AppendLine("=== Bookmark Created ===");
             sb.AppendLine($"Original line: {details.OriginalLine}");
-            sb.AppendLine($"Line content: {details.Bookmark?.LineContent}");
-            sb.AppendLine($"Line hash: {details.Bookmark?.LineHash}");
-            sb.AppendLine($"Ratio: {details.Bookmark?.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"Scope path: {FormatScopePath(details.Bookmark?.ScopePath)}");
-            sb.AppendLine($"Pre-context hashes: {FormatHashes(details.Bookmark?.PreContextHashes)}");
-            sb.AppendLine($"Post-context hashes: {FormatHashes(details.Bookmark?.PostContextHashes)}");
+            if (details.Bookmark != null)
+            {
+                sb.AppendLine($"Line content: {details.Bookmark.LineContent}");
+                sb.AppendLine($"Line hash: {details.Bookmark.LineHash}");
+                sb.AppendLine($"Ratio: {details.Bookmark.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"Scope path: {FormatScopePath(details.Bookmark.ScopePath)}");
+                sb.AppendLine($"Pre-context hashes: {FormatHashes(details.Bookmark.PreContextHashes)}");
+                sb.AppendLine($"Post-context hashes: {FormatHashes(details.Bookmark.PostContextHashes)}");
+            }
+            else
+            {
+                sb.AppendLine("Bookmark: (null - line out of range)");
+            }
             if (details.DeepestScope != null)
             {
                 sb.AppendLine($"Deepest scope: {details.DeepestScope.Path}");
@@ -142,32 +150,39 @@ namespace MegaCallstack.Services
             return sb.ToString();
         }
 
-        public static string FormatBookmarkResolved(ResolveBookmarkDetails input, ResolveDecisionDetails details)
+        public static string FormatBookmarksResolved(IReadOnlyList<ResolveBookmarkDetails> items)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("=== Bookmark Resolved ===");
-            sb.AppendLine($"Original line: {input.OriginalLine}");
-            sb.AppendLine($"Line content: {input.Bookmark?.LineContent}");
-            sb.AppendLine($"Scope path: {FormatScopePath(input.Bookmark?.ScopePath)}");
-            sb.AppendLine($"Ratio: {input.Bookmark?.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"Input line count: {details.InputLineCount}");
-            sb.AppendLine($"Seed: {details.Seed.ToString("0.000", CultureInfo.InvariantCulture)}");
-            if (details.ScopeMatch != null)
+            foreach (var item in items)
             {
-                var sm = details.ScopeMatch;
-                sb.AppendLine($"Scope match: HasPath={sm.HasScopePath}, PathLength={sm.ScopePathLength}, MatchedDepth={sm.MatchedDepth}, RankDistSum={sm.RankDistSum}, HadAmbiguity={sm.HadAmbiguity}");
-                if (sm.MatchedScope != null)
-                    sb.AppendLine($"  Matched scope: {sm.MatchedScope.Path} [{sm.MatchedScope.StartLine},{sm.MatchedScope.EndLine}]");
+                sb.AppendLine("=== Bookmark Resolved ===");
+                sb.AppendLine($"Original line: {item.OriginalLine}");
+                sb.AppendLine($"Line content: {item.Bookmark?.LineContent}");
+                sb.AppendLine($"Scope path: {FormatScopePath(item.Bookmark?.ScopePath)}");
+                sb.AppendLine($"Ratio: {item.Bookmark?.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
+                if (item.Decision != null)
+                {
+                    var details = item.Decision;
+                    sb.AppendLine($"Input line count: {details.InputLineCount}");
+                    sb.AppendLine($"Seed: {details.Seed.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    if (details.ScopeMatch != null)
+                    {
+                        var sm = details.ScopeMatch;
+                        sb.AppendLine($"Scope match: HasPath={sm.HasScopePath}, PathLength={sm.ScopePathLength}, MatchedDepth={sm.MatchedDepth}, RankDistSum={sm.RankDistSum}, HadAmbiguity={sm.HadAmbiguity}");
+                        if (sm.MatchedScope != null)
+                            sb.AppendLine($"  Matched scope: {sm.MatchedScope.Path} [{sm.MatchedScope.StartLine},{sm.MatchedScope.EndLine}]");
+                    }
+                    sb.AppendLine($"L1 exact candidates: {details.L1CandidateCount}");
+                    if (details.L1CandidateCount > 0)
+                        sb.AppendLine($"  candidate lines: {string.Join(", ", details.L1CandidateLines)}");
+                    sb.AppendLine($"L2a full context: matched={details.L2aFullContextMatched}, line={FormatNullableInt(details.L2aMatchedLine)}");
+                    sb.AppendLine($"L2b partial context: K={details.PartialK}, matched={details.L2bPartialContextMatched}, line={FormatNullableInt(details.L2bMatchedLine)}");
+                    sb.AppendLine($"L3 fuzzy search window: [{details.L3SearchStart},{details.L3SearchEnd}]");
+                    sb.AppendLine($"L3 fuzzy: matched={details.L3FuzzyMatched}, bestLine={FormatNullableInt(details.L3BestLine)}, bestSimilarity={details.L3BestSimilarity.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    sb.AppendLine($"Result: line={details.Result?.Line}, confidence={details.Result?.Confidence.ToString("0.000", CultureInfo.InvariantCulture)}, matchLevel={details.Result?.MatchLevel}");
+                }
+                sb.AppendLine();
             }
-            sb.AppendLine($"L1 exact candidates: {details.L1CandidateCount}");
-            if (details.L1CandidateCount > 0)
-                sb.AppendLine($"  candidate lines: {string.Join(", ", details.L1CandidateLines)}");
-            sb.AppendLine($"L2a full context: matched={details.L2aFullContextMatched}, line={FormatNullableInt(details.L2aMatchedLine)}");
-            sb.AppendLine($"L2b partial context: K={details.PartialK}, matched={details.L2bPartialContextMatched}, line={FormatNullableInt(details.L2bMatchedLine)}");
-            sb.AppendLine($"L3 fuzzy search window: [{details.L3SearchStart},{details.L3SearchEnd}]");
-            sb.AppendLine($"L3 fuzzy: matched={details.L3FuzzyMatched}, bestLine={FormatNullableInt(details.L3BestLine)}, bestSimilarity={details.L3BestSimilarity.ToString("0.000", CultureInfo.InvariantCulture)}");
-            sb.AppendLine($"Result: line={details.Result?.Line}, confidence={details.Result?.Confidence.ToString("0.000", CultureInfo.InvariantCulture)}, matchLevel={details.Result?.MatchLevel}");
-            sb.AppendLine();
             return sb.ToString();
         }
 

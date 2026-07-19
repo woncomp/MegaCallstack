@@ -14,18 +14,32 @@ namespace MegaCallstack.Tests
         // ---------- Create basics ----------
 
         [TestMethod]
-        public void Create_OutOfRange_Throws()
+        public void CreateAll_OutOfRange_ReturnsNullForThatItem()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_createall_" + Guid.NewGuid() + ".cs");
             var lines = new[] { "a", "b", "c" };
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => engine.Create(lines, 0));
-            Assert.ThrowsException<ArgumentOutOfRangeException>(() => engine.Create(lines, 4));
+            File.WriteAllLines(path, lines);
+            try
+            {
+                var result = engine.CreateAll(new[] { 1, 0, 4, 2 }, path);
+                Assert.AreEqual(4, result.Count);
+                Assert.IsNotNull(result[0]);
+                Assert.IsNull(result[1]);
+                Assert.IsNull(result[2]);
+                Assert.IsNotNull(result[3]);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         [TestMethod]
-        public void Create_RecordsNormalizedContentAndHash()
+        public void CreateAll_RecordsNormalizedContentAndHash()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_createall_" + Guid.NewGuid() + ".cs");
             var lines = new[]
             {
                 "class Foo",
@@ -33,15 +47,25 @@ namespace MegaCallstack.Tests
                 "\tint x;",
                 "}"
             };
-            var bm = engine.Create(lines, 3); // "int x;" (with tab)
-            Assert.AreEqual("int x;", bm.LineContent); // tab -> space, then trimmed
-            Assert.AreEqual(FuzzyBookmarkEngine.FNV1a(0, "int x;"), bm.LineHash);
+            File.WriteAllLines(path, lines);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 3 }, path);
+                Assert.AreEqual(1, bookmarks.Count);
+                Assert.AreEqual("int x;", bookmarks[0].LineContent);
+                Assert.AreEqual(FuzzyBookmarkEngine.FNV1a(0, "int x;"), bookmarks[0].LineHash);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         [TestMethod]
-        public void Create_PopulatesScopePathForRealScope()
+        public void CreateAll_PopulatesScopePathForRealScope()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_createall_" + Guid.NewGuid() + ".cs");
             var lines = new[]
             {
                 "namespace App",
@@ -55,18 +79,24 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            // Line 7 (1-based) = "return;" inside function Run().
-            // The function anchor is the "void Run()" line (0-based 4); its block closes at
-            // 0-based 7, so span [4,7] = 3. Line 7 -> idx0=6 -> ratio (6-4)/3 = 2/3.
-            var bm = engine.Create(lines, 7);
-            Assert.AreEqual(3, bm.ScopePath.Length); // namespace, class, function
-            Assert.AreEqual(2.0 / 3.0, bm.Ratio, 0.001);
+            File.WriteAllLines(path, lines);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 7 }, path);
+                Assert.AreEqual(3, bookmarks[0].ScopePath.Length);
+                Assert.AreEqual(2.0 / 3.0, bookmarks[0].Ratio, 0.001);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         [TestMethod]
-        public void Create_FillerLine_HasEmptyScopePathAndFileRatio()
+        public void CreateAll_FillerLine_HasEmptyScopePathAndFileRatio()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_createall_" + Guid.NewGuid() + ".cs");
             var lines = new[]
             {
                 "#include <stdio.h>",
@@ -76,10 +106,17 @@ namespace MegaCallstack.Tests
                 "    int x;",
                 "}"
             };
-            // Line 1 (1-based) = "#include" -> Filler (Global_Header).
-            var bm = engine.Create(lines, 1);
-            Assert.AreEqual(0, bm.ScopePath.Length);
-            Assert.AreEqual(0.0, bm.Ratio, 0.001); // idx0=0 -> 0
+            File.WriteAllLines(path, lines);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 1 }, path);
+                Assert.AreEqual(0, bookmarks[0].ScopePath.Length);
+                Assert.AreEqual(0.0, bookmarks[0].Ratio, 0.001);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: L1 exact on a moved line ----------
@@ -98,26 +135,38 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            var bm = engine.Create(original, 5); // "var target = 1;"
-
-            // Insert 3 lines above the target (file grows, target moves down).
-            var edited = new[]
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
+            File.WriteAllLines(path, original);
+            try
             {
-                "// added comment 1",
-                "// added comment 2",
-                "// added comment 3",
-                "class Foo",
-                "{",
-                "    void Bar()",
-                "    {",
-                "        var target = 1;",
-                "    }",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            Assert.AreEqual(8, result.Line);
-            Assert.IsTrue(result.Confidence > 0.0);
-            Assert.IsTrue(result.MatchLevel == "Exact" || result.MatchLevel == "ContextFull");
+                var bookmarks = engine.CreateAll(new[] { 5 }, path); // "var target = 1;"
+                var bm = bookmarks[0];
+
+                // Insert 3 lines above the target (file grows, target moves down).
+                var edited = new[]
+                {
+                    "// added comment 1",
+                    "// added comment 2",
+                    "// added comment 3",
+                    "class Foo",
+                    "{",
+                    "    void Bar()",
+                    "    {",
+                    "        var target = 1;",
+                    "    }",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                Assert.AreEqual(8, result.Line);
+                Assert.IsTrue(result.Confidence > 0.0);
+                Assert.IsTrue(result.MatchLevel == "Exact" || result.MatchLevel == "ContextFull");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: L1 duplicate lines, L2 disambiguation ----------
@@ -140,14 +189,23 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            // Target the FIRST "return;" (line 5, 1-based).
-            var bm = engine.Create(original, 5);
-            Assert.AreEqual("return;", bm.LineContent);
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
+            File.WriteAllLines(path, original);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 5 }, path);
+                var bm = bookmarks[0];
+                Assert.AreEqual("return;", bm.LineContent);
 
-            // Resolve against the same file: should land on the first return (line 5),
-            // not the second (line 9), because the context above/below differs.
-            var result = engine.Resolve(bm, original);
-            Assert.AreEqual(5, result.Line);
+                // Resolve against the same file: should land on the first return (line 5),
+                // not the second (line 9), because the context above/below differs.
+                var results = engine.ResolveAll(new[] { bm }, path);
+                Assert.AreEqual(5, results[0].Line);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: L2a full context window ----------
@@ -156,6 +214,7 @@ namespace MegaCallstack.Tests
         public void Resolve_L2a_FullContextWindowMatch()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "void Run()",
@@ -166,30 +225,41 @@ namespace MegaCallstack.Tests
                 "    int delta = 4;",
                 "}"
             };
-            var bm = engine.Create(original, 4); // "int beta = 2;"
-
-            // Move the function down (insert lines above) and add an unrelated "int beta = 2;"
-            // elsewhere so L1 has multiple candidates; only the original context window matches fully.
-            var edited = new[]
+            File.WriteAllLines(path, original);
+            try
             {
-                "// preamble",
-                "void Helper()",
-                "{",
-                "    int beta = 2;",
-                "}",
-                "",
-                "void Run()",
-                "{",
-                "    int alpha = 1;",
-                "    int beta = 2;",
-                "    int gamma = 3;",
-                "    int delta = 4;",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            // Expect the "int beta = 2;" inside Run (line 10), distinguished by alpha/gamma neighbors.
-            Assert.AreEqual(10, result.Line);
-            Assert.AreEqual("ContextFull", result.MatchLevel);
+                var bookmarks = engine.CreateAll(new[] { 4 }, path); // "int beta = 2;"
+                var bm = bookmarks[0];
+
+                // Move the function down (insert lines above) and add an unrelated "int beta = 2;"
+                // elsewhere so L1 has multiple candidates; only the original context window matches fully.
+                var edited = new[]
+                {
+                    "// preamble",
+                    "void Helper()",
+                    "{",
+                    "    int beta = 2;",
+                    "}",
+                    "",
+                    "void Run()",
+                    "{",
+                    "    int alpha = 1;",
+                    "    int beta = 2;",
+                    "    int gamma = 3;",
+                    "    int delta = 4;",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                // Expect the "int beta = 2;" inside Run (line 10), distinguished by alpha/gamma neighbors.
+                Assert.AreEqual(10, result.Line);
+                Assert.AreEqual("ContextFull", result.MatchLevel);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: L3 fuzzy on an edited line ----------
@@ -198,6 +268,7 @@ namespace MegaCallstack.Tests
         public void Resolve_L3_FuzzyMatchOnEditedLine()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "class Foo",
@@ -208,23 +279,34 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            var bm = engine.Create(original, 5); // "int numberOfItems = 42;"
-
-            // Edit the target line's value only. No exact match anywhere; L3 should catch it
-            // (tokens "int","numberOfItems" still match; only the literal differs).
-            var edited = new[]
+            File.WriteAllLines(path, original);
+            try
             {
-                "class Foo",
-                "{",
-                "    void Bar()",
-                "    {",
-                "        int numberOfItems = 100;",
-                "    }",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            Assert.AreEqual(5, result.Line);
-            Assert.AreEqual("Fuzzy", result.MatchLevel);
+                var bookmarks = engine.CreateAll(new[] { 5 }, path); // "int numberOfItems = 42;"
+                var bm = bookmarks[0];
+
+                // Edit the target line's value only. No exact match anywhere; L3 should catch it
+                // (tokens "int","numberOfItems" still match; only the literal differs).
+                var edited = new[]
+                {
+                    "class Foo",
+                    "{",
+                    "    void Bar()",
+                    "    {",
+                    "        int numberOfItems = 100;",
+                    "    }",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                Assert.AreEqual(5, result.Line);
+                Assert.AreEqual("Fuzzy", result.MatchLevel);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         [TestMethod]
@@ -234,6 +316,7 @@ namespace MegaCallstack.Tests
             // should NOT return a low-confidence guess (per "high-fidelity: prefer no match over
             // a wrong match"), and should fall back to the seed-derived line instead.
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "class Foo",
@@ -244,20 +327,31 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            var bm = engine.Create(original, 5);
-
-            var edited = new[]
+            File.WriteAllLines(path, original);
+            try
             {
-                "class Foo",
-                "{",
-                "    void Bar()",
-                "    {",
-                "        int itemCount = 42;",
-                "    }",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            Assert.AreEqual("Fallback", result.MatchLevel);
+                var bookmarks = engine.CreateAll(new[] { 5 }, path);
+                var bm = bookmarks[0];
+
+                var edited = new[]
+                {
+                    "class Foo",
+                    "{",
+                    "    void Bar()",
+                    "    {",
+                    "        int itemCount = 42;",
+                    "    }",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                Assert.AreEqual("Fallback", result.MatchLevel);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: NotFound / empty ----------
@@ -266,10 +360,20 @@ namespace MegaCallstack.Tests
         public void Resolve_EmptyFile_ReturnsNotFound()
         {
             var engine = new FuzzyBookmarkEngine();
-            var bm = new FuzzyBookmark { LineContent = "x", LineHash = 1, ScopePath = new uint[0], Ratio = 0.5 };
-            var result = engine.Resolve(bm, new string[0]);
-            Assert.AreEqual(0, result.Line);
-            Assert.AreEqual("NotFound", result.MatchLevel);
+            var path = Path.Combine(Path.GetTempPath(), "fbm_empty_" + Guid.NewGuid() + ".cs");
+            File.WriteAllText(path, string.Empty);
+            try
+            {
+                var bm = new FuzzyBookmark { LineContent = "x", LineHash = 1, ScopePath = new uint[0], Ratio = 0.5 };
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                Assert.AreEqual(0, result.Line);
+                Assert.AreEqual("NotFound", result.MatchLevel);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: file missing ----------
@@ -279,7 +383,8 @@ namespace MegaCallstack.Tests
         {
             var engine = new FuzzyBookmarkEngine();
             var bm = new FuzzyBookmark { LineContent = "x", LineHash = 1, ScopePath = new uint[0], Ratio = 0.5 };
-            var result = engine.Resolve(bm, Path.Combine(Path.GetTempPath(), "definitely_missing_" + Guid.NewGuid() + ".cs"));
+            var results = engine.ResolveAll(new[] { bm }, Path.Combine(Path.GetTempPath(), "definitely_missing_" + Guid.NewGuid() + ".cs"));
+            var result = results[0];
             Assert.AreEqual(0, result.Line);
             Assert.AreEqual("NotFound", result.MatchLevel);
         }
@@ -290,6 +395,7 @@ namespace MegaCallstack.Tests
         public void Resolve_ScopeNotFound_FallsBackToParentScope()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "namespace App",
@@ -303,23 +409,34 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            // Target line 7 inside function DoWork.
-            var bm = engine.Create(original, 7);
-
-            // Remove the function entirely but keep the class; the line content still exists.
-            var edited = new[]
+            File.WriteAllLines(path, original);
+            try
             {
-                "namespace App",
-                "{",
-                "    class Worker",
-                "    {",
-                "        var target = 1;",
-                "    }",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            // Should still find the "var target = 1;" line (now line 5) by content/context.
-            Assert.AreEqual(5, result.Line);
+                // Target line 7 inside function DoWork.
+                var bookmarks = engine.CreateAll(new[] { 7 }, path);
+                var bm = bookmarks[0];
+
+                // Remove the function entirely but keep the class; the line content still exists.
+                var edited = new[]
+                {
+                    "namespace App",
+                    "{",
+                    "    class Worker",
+                    "    {",
+                    "        var target = 1;",
+                    "    }",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                // Should still find the "var target = 1;" line (now line 5) by content/context.
+                Assert.AreEqual(5, result.Line);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: same-name scope rank tiebreak ----------
@@ -329,6 +446,7 @@ namespace MegaCallstack.Tests
         {
             var engine = new FuzzyBookmarkEngine();
             // Two classes named "Foo": one big, one small. Rank distinguishes them.
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "class Foo",
@@ -344,28 +462,39 @@ namespace MegaCallstack.Tests
                 "    int x;",
                 "}"
             };
-            // Bookmark a line in the BIG class (lines 2..6). The big class has Rank=1.
-            var bm = engine.Create(original, 5); // "int c;"
-
-            // Reorder so the small class comes first; big class still exists and has Rank=1.
-            var edited = new[]
+            File.WriteAllLines(path, original);
+            try
             {
-                "class Foo",
-                "{",
-                "    int x;",
-                "}",
-                "",
-                "class Foo",
-                "{",
-                "    int a;",
-                "    int b;",
-                "    int c;",
-                "    int d;",
-                "}"
-            };
-            var result = engine.Resolve(bm, edited);
-            // Should land in the big class (lines 6..12), specifically "int c;" at line 10.
-            Assert.AreEqual(10, result.Line);
+                // Bookmark a line in the BIG class (lines 2..6). The big class has Rank=1.
+                var bookmarks = engine.CreateAll(new[] { 5 }, path); // "int c;"
+                var bm = bookmarks[0];
+
+                // Reorder so the small class comes first; big class still exists and has Rank=1.
+                var edited = new[]
+                {
+                    "class Foo",
+                    "{",
+                    "    int x;",
+                    "}",
+                    "",
+                    "class Foo",
+                    "{",
+                    "    int a;",
+                    "    int b;",
+                    "    int c;",
+                    "    int d;",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
+                // Should land in the big class (lines 6..12), specifically "int c;" at line 10.
+                Assert.AreEqual(10, result.Line);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: dynamic context expansion ----------
@@ -375,6 +504,7 @@ namespace MegaCallstack.Tests
         {
             var engine = new FuzzyBookmarkEngine();
             // A file with many "x = 0;" duplicates but different surrounding lines.
+            var path = Path.Combine(Path.GetTempPath(), "fbm_create_" + Guid.NewGuid() + ".cs");
             var original = new List<string>
             {
                 "class Foo",
@@ -393,10 +523,19 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            var bm = engine.Create(original, 5); // first "x = 0;"
-            // N = 3 occurrences -> target = min(3,5) = 3 -> context expands toward 3 differing lines.
-            Assert.IsTrue(bm.PreContextHashes.Length >= 2, "Pre context should be at least the default span");
-            Assert.AreEqual(bm.PreContextHashes.Length, bm.PostContextHashes.Length);
+            File.WriteAllLines(path, original);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 5 }, path); // first "x = 0;"
+                var bm = bookmarks[0];
+                // N = 3 occurrences -> target = min(3,5) = 3 -> context expands toward 3 differing lines.
+                Assert.IsTrue(bm.PreContextHashes.Length >= 2, "Pre context should be at least the default span");
+                Assert.AreEqual(bm.PreContextHashes.Length, bm.PostContextHashes.Length);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- Resolve: single-line scope (span=0) ----------
@@ -405,6 +544,7 @@ namespace MegaCallstack.Tests
         public void Create_SingleLineScope_RatioIsZero()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_create_" + Guid.NewGuid() + ".cs");
             var lines = new[]
             {
                 "class Foo",
@@ -415,12 +555,20 @@ namespace MegaCallstack.Tests
                 "{",
                 "}"
             };
-            // Line 2 "{" is filler; line 5 "void Bar()" with immediate block on line 6..7.
-            // "void Bar()" itself: detected as anchor; the function scope is [5,6].
-            var bm = engine.Create(lines, 5);
-            // The function node StartLine=5, EndLine=6 (0-based 4,5)? Span>=1 so ratio computed normally.
-            // Just ensure it doesn't throw and scope path is populated.
-            Assert.IsTrue(bm.ScopePath.Length >= 1);
+            File.WriteAllLines(path, lines);
+            try
+            {
+                // Line 2 "{" is filler; line 5 "void Bar()" with immediate block on line 6..7.
+                // "void Bar()" itself: detected as anchor; the function scope is [5,6].
+                var bookmarks = engine.CreateAll(new[] { 5 }, path);
+                // The function node StartLine=5, EndLine=6 (0-based 4,5)? Span>=1 so ratio computed normally.
+                // Just ensure it doesn't throw and scope path is populated.
+                Assert.IsTrue(bookmarks[0].ScopePath.Length >= 1);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- ResolveAll: batch ----------
@@ -429,6 +577,7 @@ namespace MegaCallstack.Tests
         public void ResolveAll_SharedFile_ReturnsOneResultPerBookmark()
         {
             var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_resolve_" + Guid.NewGuid() + ".cs");
             var original = new[]
             {
                 "class Foo",
@@ -443,17 +592,27 @@ namespace MegaCallstack.Tests
                 "    }",
                 "}"
             };
-            var bm1 = engine.Create(original, 5); // "var a = 1;"
-            var bm2 = engine.Create(original, 9); // "var b = 2;"
+            File.WriteAllLines(path, original);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 5, 9 }, path); // "var a = 1;", "var b = 2;"
+                var bm1 = bookmarks[0];
+                var bm2 = bookmarks[1];
 
-            // Insert a header line; both should shift by +1.
-            var edited = new List<string> { "// header" };
-            edited.AddRange(original);
+                // Insert a header line; both should shift by +1.
+                var edited = new List<string> { "// header" };
+                edited.AddRange(original);
+                File.WriteAllLines(path, edited);
 
-            var results = engine.ResolveAll(new[] { bm1, bm2 }, edited);
-            Assert.AreEqual(2, results.Count);
-            Assert.AreEqual(6, results[0].Line);
-            Assert.AreEqual(10, results[1].Line);
+                var results = engine.ResolveAll(new[] { bm1, bm2 }, path);
+                Assert.AreEqual(2, results.Count);
+                Assert.AreEqual(6, results[0].Line);
+                Assert.AreEqual(10, results[1].Line);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ---------- File-based Create/Resolve round trip ----------
@@ -476,7 +635,8 @@ namespace MegaCallstack.Tests
             File.WriteAllLines(path, original, Encoding.UTF8);
             try
             {
-                var bm = engine.Create(path, 5);
+                var bookmarks = engine.CreateAll(new[] { 5 }, path);
+                var bm = bookmarks[0];
 
                 var edited = new[]
                 {
@@ -491,7 +651,8 @@ namespace MegaCallstack.Tests
                 };
                 File.WriteAllLines(path, edited, Encoding.UTF8);
 
-                var result = engine.Resolve(bm, path);
+                var results = engine.ResolveAll(new[] { bm }, path);
+                var result = results[0];
                 Assert.AreEqual(6, result.Line);
             }
             finally

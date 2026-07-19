@@ -14,6 +14,7 @@ namespace MegaCallstack.Services
     {
         private readonly DTE _dte;
         private readonly FuzzyBookmarkEngine _bookmarkEngine;
+        private readonly IBookmarkResolver _bookmarkResolver;
         private readonly List<string> _userCodeRoots;
         private EnvDTE.Events _dteEvents;
         private EnvDTE.DebuggerEvents _debuggerEvents;
@@ -51,9 +52,15 @@ namespace MegaCallstack.Services
         }
 
         public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, FuzzyBookmarkEngine bookmarkEngine)
+            : this(dte, userCodeRoots, bookmarkEngine, null)
+        {
+        }
+
+        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, FuzzyBookmarkEngine bookmarkEngine, IBookmarkResolver bookmarkResolver)
         {
             _dte = dte;
             _bookmarkEngine = bookmarkEngine ?? new FuzzyBookmarkEngine();
+            _bookmarkResolver = bookmarkResolver;
             _userCodeRoots = NormalizeUserCodeRoots(userCodeRoots);
             HookDebuggerEvents(dte);
         }
@@ -110,18 +117,6 @@ namespace MegaCallstack.Services
                         LineContent = lineContent
                     };
 
-                    if (!string.IsNullOrEmpty(fileName) && lineNumber > 0)
-                    {
-                        try
-                        {
-                            frame.Bookmark = _bookmarkEngine.Create(fileName, lineNumber);
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Log($"Capture: Failed to create fuzzy bookmark: {ex.Message}");
-                        }
-                    }
-
                     rawFrames.Add(frame);
                 }
                 catch
@@ -145,7 +140,12 @@ namespace MegaCallstack.Services
                 frames.Add(f);
             }
 
-            return new CallstackData(frames);
+            var callstack = new CallstackData(frames);
+
+            if (_bookmarkResolver != null)
+                await _bookmarkResolver.CreateBookmarksForCallstackAsync(callstack);
+
+            return callstack;
         }
 
         public async Task<int> ResolveFrameLineNumberAsync(CallstackFrame frame)
@@ -160,9 +160,10 @@ namespace MegaCallstack.Services
                     if (!File.Exists(frame.FileName))
                         return frame.LineNumber;
 
-                    var result = _bookmarkEngine.Resolve(frame.Bookmark, frame.FileName);
-                    if (result.Line > 0)
-                        frame.LineNumber = result.Line;
+                    var bookmarks = new[] { frame.Bookmark };
+                    var results = _bookmarkEngine.ResolveAll(bookmarks, frame.FileName);
+                    if (results.Count > 0 && results[0].Line > 0)
+                        frame.LineNumber = results[0].Line;
 
                     return frame.LineNumber;
                 }

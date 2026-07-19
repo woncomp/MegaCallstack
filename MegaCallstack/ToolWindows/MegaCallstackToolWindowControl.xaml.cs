@@ -65,7 +65,8 @@ namespace MegaCallstack.ToolWindows
             string diagnosticsDirectory = Path.Combine(info.DataDirectory, Constants.DiagnosticsFolderName);
             var diagnostics = new FuzzyBookmarkFileDiagnostics(diagnosticsDirectory);
             var bookmarkEngine = new FuzzyBookmarkEngine(diagnostics);
-            var captureService = new CallstackCaptureService(dte, bookmarkEngine);
+            var bookmarkResolver = new BookmarkResolver(bookmarkEngine);
+            var captureService = new CallstackCaptureService(dte, info.UserCodeRoots, bookmarkEngine, bookmarkResolver);
             var treeBuilder = new CallstackTreeBuilder();
             var repository = new SessionRepository(info);
             var window = Window.GetWindow(this);
@@ -74,6 +75,7 @@ namespace MegaCallstack.ToolWindows
                 info,
                 repository,
                 captureService,
+                bookmarkResolver,
                 treeBuilder,
                 new WpfColorPickerService(window),
                 new WpfNoteEditorService(window),
@@ -85,6 +87,30 @@ namespace MegaCallstack.ToolWindows
 
             await _workspace.InitializeAsync();
             workspaceView.DataContext = _workspace.ViewModel;
+
+            GotFocus += OnToolWindowGotFocus;
+        }
+
+        private DateTime _lastFocusCheck = DateTime.MinValue;
+
+        private async void OnToolWindowGotFocus(object sender, RoutedEventArgs e)
+        {
+            if (_workspace?.ViewModel == null)
+                return;
+
+            var now = DateTime.Now;
+            if ((now - _lastFocusCheck).TotalSeconds < 1.0)
+                return;
+            _lastFocusCheck = now;
+
+            try
+            {
+                await _workspace.ViewModel.CheckFilesAndResolveAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"ToolWindow: Focus resolution failed: {ex.Message}");
+            }
         }
 
         private void OnNavigateToFile(string fileName, int lineNumber)

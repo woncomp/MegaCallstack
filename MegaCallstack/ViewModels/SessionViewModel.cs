@@ -20,6 +20,7 @@ namespace MegaCallstack.ViewModels
         private readonly SolutionSessionData _sessionData;
         private readonly ISessionRepository _repository;
         private readonly ICallstackCaptureService _captureService;
+        private readonly IBookmarkResolver _bookmarkResolver;
         private readonly ICallstackTreeBuilder _treeBuilder;
         private readonly IColorPickerService _colorPickerService;
         private readonly INoteEditorService _noteEditorService;
@@ -53,6 +54,7 @@ namespace MegaCallstack.ViewModels
             SolutionSessionData sessionData,
             ISessionRepository repository,
             ICallstackCaptureService captureService,
+            IBookmarkResolver bookmarkResolver,
             ICallstackTreeBuilder treeBuilder,
             IColorPickerService colorPickerService,
             INoteEditorService noteEditorService,
@@ -62,6 +64,7 @@ namespace MegaCallstack.ViewModels
             _sessionData = sessionData;
             _repository = repository;
             _captureService = captureService;
+            _bookmarkResolver = bookmarkResolver;
             _treeBuilder = treeBuilder;
             _colorPickerService = colorPickerService;
             _noteEditorService = noteEditorService;
@@ -302,6 +305,36 @@ namespace MegaCallstack.ViewModels
                 await _repository.LoadSessionDetailsAsync(session);
         }
 
+        public async Task CheckFilesAndResolveAsync()
+        {
+            if (_activeSession == null || _bookmarkResolver == null)
+                return;
+
+            var files = _activeSession.Callstacks
+                .SelectMany(c => c.Frames)
+                .Where(f => f.Bookmark != null && !string.IsNullOrEmpty(f.FileName))
+                .Select(f => f.FileName)
+                .Distinct()
+                .ToList();
+
+            var changed = new List<string>();
+            foreach (var file in files)
+            {
+                if (!File.Exists(file))
+                    continue;
+                long currentTicks = File.GetLastWriteTimeUtc(file).Ticks;
+                if (!_activeSession.ResolvedFileWriteTimes.TryGetValue(file, out long storedTicks) || currentTicks != storedTicks)
+                    changed.Add(file);
+            }
+
+            if (changed.Count == 0)
+                return;
+
+            await _bookmarkResolver.ResolveFilesAsync(changed, _activeSession);
+            RefreshTreeNodes();
+            await _repository.SaveStateAsync(_activeSession);
+        }
+
         private void ApplySessionFilter()
         {
             FilteredSessions.Clear();
@@ -430,8 +463,7 @@ namespace MegaCallstack.ViewModels
             var parent = SelectedNode?.Parent;
             if (parent?.Frame != null)
             {
-                int line = await _captureService.ResolveFrameLineNumberAsync(parent.Frame);
-                NavigateToFile?.Invoke(parent.Frame.FileName, line);
+                NavigateToFile?.Invoke(parent.Frame.FileName, parent.Frame.LineNumber);
             }
         }
 
@@ -444,8 +476,7 @@ namespace MegaCallstack.ViewModels
         {
             if (SelectedNode?.Frame != null)
             {
-                int line = await _captureService.ResolveFrameLineNumberAsync(SelectedNode.Frame);
-                NavigateToFile?.Invoke(SelectedNode.Frame.FileName, line);
+                NavigateToFile?.Invoke(SelectedNode.Frame.FileName, SelectedNode.Frame.LineNumber);
             }
         }
 
@@ -645,6 +676,8 @@ namespace MegaCallstack.ViewModels
             NotifyHomePageProperties();
 
             await EnsureSessionLoadedAsync(session);
+            if (_bookmarkResolver != null)
+                await _bookmarkResolver.ResolveSessionAsync(session);
 
             RefreshTreeNodes();
             RefreshSessionsList();

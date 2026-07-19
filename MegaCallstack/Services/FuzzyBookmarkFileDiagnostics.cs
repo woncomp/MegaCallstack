@@ -65,20 +65,13 @@ namespace MegaCallstack.Services
                 Bookmark = bookmark,
                 DeepestScope = deepestScope
             };
-            AppendToResolveLog(operationId, FuzzyBookmarkDiagnosticsFormatter.FormatBookmarkCreated(details));
+            AppendToCreateLog(operationId, FuzzyBookmarkDiagnosticsFormatter.FormatBookmarkCreated(details));
         }
 
-        public void OnBookmarkResolved(string operationId, FuzzyBookmark bookmark, ResolveDecisionDetails details)
+        public void OnBookmarksResolved(string operationId, IReadOnlyList<ResolveBookmarkDetails> details)
         {
             if (string.IsNullOrWhiteSpace(operationId)) return;
-            var input = new ResolveBookmarkDetails
-            {
-                OriginalLine = details?.Result?.Line ?? 0,
-                Bookmark = bookmark,
-                Seed = details?.Seed ?? 0.0,
-                ScopeMatch = details?.ScopeMatch
-            };
-            AppendToResolveLog(operationId, FuzzyBookmarkDiagnosticsFormatter.FormatBookmarkResolved(input, details));
+            AppendToResolveLog(operationId, FuzzyBookmarkDiagnosticsFormatter.FormatBookmarksResolved(details));
         }
 
         public void CompleteOperation(string operationId)
@@ -95,14 +88,30 @@ namespace MegaCallstack.Services
             return Path.Combine(_outputDirectory, $"{Sanitize(operationId)}-scope-parser.json");
         }
 
+        public string GetBookmarkCreateFilePath(string operationId)
+        {
+            return Path.Combine(_outputDirectory, $"{Sanitize(operationId)}-bookmark-create.txt");
+        }
+
         public string GetBookmarkResolveFilePath(string operationId)
         {
             return Path.Combine(_outputDirectory, $"{Sanitize(operationId)}-bookmark-resolve.txt");
         }
 
+        private void AppendToCreateLog(string operationId, string text)
+        {
+            string filePath = GetBookmarkCreateFilePath(operationId);
+            AppendToFile(filePath, text);
+        }
+
         private void AppendToResolveLog(string operationId, string text)
         {
             string filePath = GetBookmarkResolveFilePath(operationId);
+            AppendToFile(filePath, text);
+        }
+
+        private void AppendToFile(string filePath, string text)
+        {
             lock (_lock)
             {
                 File.AppendAllText(filePath, text);
@@ -120,6 +129,7 @@ namespace MegaCallstack.Services
         private bool OperationFilesExist(string operationId)
         {
             return File.Exists(GetScopeParserFilePath(operationId))
+                || File.Exists(GetBookmarkCreateFilePath(operationId))
                 || File.Exists(GetBookmarkResolveFilePath(operationId));
         }
 

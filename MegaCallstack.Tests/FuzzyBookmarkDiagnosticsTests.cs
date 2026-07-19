@@ -31,7 +31,7 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
-        public void Create_WithDiagnostics_WritesScopeParserJsonAndResolveLog()
+        public void CreateAll_WithDiagnostics_WritesScopeParserJsonAndCreateLog()
         {
             var diagnostics = new FuzzyBookmarkFileDiagnostics(_tempDirectory);
             var engine = new FuzzyBookmarkEngine(diagnostics);
@@ -48,7 +48,7 @@ namespace MegaCallstack.Tests
                 "}"
             });
 
-            var bookmark = engine.Create(filePath, 5);
+            var bookmarks = engine.CreateAll(new[] { 5 }, filePath);
 
             var files = Directory.GetFiles(_tempDirectory, "*-scope-parser.json");
             Assert.AreEqual(1, files.Length, "Expected one scope-parser JSON file.");
@@ -60,16 +60,19 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(7, root["LineCount"]?.Value<int>());
             Assert.IsNotNull(root["Root"]);
 
-            string resolveLog = Path.Combine(_tempDirectory, $"{operationId}-bookmark-resolve.txt");
-            Assert.IsTrue(File.Exists(resolveLog), "Expected bookmark resolve log.");
-            string log = File.ReadAllText(resolveLog);
+            string createLog = Path.Combine(_tempDirectory, $"{operationId}-bookmark-create.txt");
+            Assert.IsTrue(File.Exists(createLog), "Expected bookmark create log.");
+            string log = File.ReadAllText(createLog);
             StringAssert.Contains(log, "=== Bookmark Created ===");
             StringAssert.Contains(log, "Original line: 5");
-            StringAssert.Contains(log, bookmark.LineContent);
+            StringAssert.Contains(log, bookmarks[0].LineContent);
+
+            string resolveLog = Path.Combine(_tempDirectory, $"{operationId}-bookmark-resolve.txt");
+            Assert.IsFalse(File.Exists(resolveLog), "Create operation should not produce a resolve log.");
         }
 
         [TestMethod]
-        public void Resolve_WithDiagnostics_WritesDecisionDetails()
+        public void ResolveAll_WithDiagnostics_WritesDecisionDetails()
         {
             var diagnostics = new FuzzyBookmarkFileDiagnostics(_tempDirectory);
             var engine = new FuzzyBookmarkEngine(diagnostics);
@@ -86,7 +89,7 @@ namespace MegaCallstack.Tests
                 "}"
             });
 
-            var bookmark = engine.Create(filePath, 5);
+            var bookmarks = engine.CreateAll(new[] { 5 }, filePath);
 
             File.WriteAllLines(filePath, new[]
             {
@@ -100,7 +103,7 @@ namespace MegaCallstack.Tests
                 "}"
             });
 
-            var result = engine.Resolve(bookmark, filePath);
+            var results = engine.ResolveAll(bookmarks, filePath);
 
             var files = Directory.GetFiles(_tempDirectory, "*-scope-parser.json");
             Assert.IsTrue(files.Length >= 1);
@@ -113,7 +116,7 @@ namespace MegaCallstack.Tests
             StringAssert.Contains(log, "L2a full context:");
             StringAssert.Contains(log, "L2b partial context:");
             StringAssert.Contains(log, "L3 fuzzy search window:");
-            StringAssert.Contains(log, $"Result: line={result.Line}");
+            StringAssert.Contains(log, $"Result: line={results[0].Line}");
         }
 
         [TestMethod]
@@ -132,11 +135,7 @@ namespace MegaCallstack.Tests
                 "}"
             });
 
-            var bookmarks = new[]
-            {
-                engine.Create(filePath, 3),
-                engine.Create(filePath, 4)
-            };
+            var bookmarks = engine.CreateAll(new[] { 3, 4 }, filePath);
 
             var results = engine.ResolveAll(bookmarks, filePath);
 
