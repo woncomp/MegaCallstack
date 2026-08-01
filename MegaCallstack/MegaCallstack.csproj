@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Constants.cs" />
     <Compile Include="Logger.cs" />
+    <Compile Include="Models\MegaCallstackSettings.cs" />
     <Compile Include="Models\SolutionInfo.cs" />
     <Compile Include="Models\CallstackFrame.cs" />
     <Compile Include="Models\CallstackData.cs" />
@@ -57,6 +58,8 @@
     <Compile Include="Models\SessionState.cs" />
     <Compile Include="Models\SolutionSessionData.cs" />
     <Compile Include="Models\TreeViewNode.cs" />
+    <Compile Include="Services\ISettingsService.cs" />
+    <Compile Include="Services\SettingsService.cs" />
     <Compile Include="Services\IColorPickerService.cs" />
     <Compile Include="Services\INoteEditorService.cs" />
     <Compile Include="Services\ISolutionInfoProvider.cs" />
@@ -79,6 +82,9 @@
     </Compile>
     <Compile Include="Dialogs\NoteEditorDialog.xaml.cs">
       <DependentUpon>NoteEditorDialog.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Dialogs\SettingsDialog.xaml.cs">
+      <DependentUpon>SettingsDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Dialogs\WpfColorPickerService.cs" />
     <Compile Include="Dialogs\WpfNoteEditorService.cs" />
@@ -122,6 +128,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Dialogs\NoteEditorDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Dialogs\SettingsDialog.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

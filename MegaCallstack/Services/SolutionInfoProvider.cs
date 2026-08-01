@@ -20,6 +20,8 @@ namespace MegaCallstack.Services
         private readonly DTE _dte;
         private readonly EnvDTE.Events _dteEvents;
         private readonly EnvDTE.SolutionEvents _solutionEvents;
+        private readonly int _maxUserCodeRoots;
+        private readonly int _maxSolutionFilesToScan;
         private SolutionInfo _current;
         private Guid _currentOperationId;
 
@@ -34,6 +36,9 @@ namespace MegaCallstack.Services
             _solutionEvents = _dteEvents.SolutionEvents;
             _solutionEvents.Opened += OnSolutionOpened;
             _solutionEvents.BeforeClosing += OnSolutionBeforeClosing;
+
+            _maxUserCodeRoots = SettingsService.CurrentSettings?.MaxUserCodeRoots ?? 8;
+            _maxSolutionFilesToScan = SettingsService.CurrentSettings?.MaxSolutionFilesToScan ?? 100000;
 
             if (IsSolutionLoaded())
             {
@@ -94,7 +99,7 @@ namespace MegaCallstack.Services
                 try
                 {
                     var filePaths = await Task.Run(() => CollectSolutionFilePaths());
-                    roots = await Task.Run(() => SolutionRootDetector.DetectProjectFolders(filePaths.ToArray(), Constants.MaxUserCodeRoots));
+                    roots = await Task.Run(() => SolutionRootDetector.DetectProjectFolders(filePaths.ToArray(), _maxUserCodeRoots));
                 }
                 catch (Exception ex)
                 {
@@ -118,9 +123,9 @@ namespace MegaCallstack.Services
                 try
                 {
                     var info = new SolutionInfo(fullPath, NormalizeRoots(roots, fullPath));
-                    Logger.Log($"SolutionInfoProvider: Found {info.UserCodeRoots.Count} user-code roots:");
+                    Logger.Log($"SolutionInfoProvider: Found {info.UserCodeRoots.Count} user-code roots.");
                     foreach (var root in info.UserCodeRoots)
-                        Logger.Log($"  - {root}");
+                        Logger.LogDiagnostic($"  - {root}");
                     SetCurrent(info);
                 }
                 catch (Exception ex)
@@ -177,9 +182,9 @@ namespace MegaCallstack.Services
                 foreach (Project project in projects)
                 {
                     CollectFromProject(project, files);
-                    if (files.Count >= Constants.MaxSolutionFilesToScan)
+                    if (files.Count >= _maxSolutionFilesToScan)
                     {
-                        Logger.Log($"SolutionInfoProvider: Hit cap of {Constants.MaxSolutionFilesToScan} files");
+                        Logger.LogDiagnostic($"SolutionInfoProvider: Hit cap of {_maxSolutionFilesToScan} files");
                         break;
                     }
                 }
@@ -195,7 +200,7 @@ namespace MegaCallstack.Services
 
         private void CollectFromProject(Project project, List<string> files)
         {
-            if (project == null || files.Count >= Constants.MaxSolutionFilesToScan)
+            if (project == null || files.Count >= _maxSolutionFilesToScan)
                 return;
 
             try
@@ -229,7 +234,7 @@ namespace MegaCallstack.Services
 
             foreach (ProjectItem item in items)
             {
-                if (files.Count >= Constants.MaxSolutionFilesToScan)
+                if (files.Count >= _maxSolutionFilesToScan)
                     return;
 
                 try

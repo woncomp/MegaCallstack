@@ -130,8 +130,9 @@ namespace MegaCallstack.Services
             string displayText;
             if (frame.LineContent != null)
             {
-                displayText = frame.LineContent.Length > Constants.LeafNodeDisplayMaxLength
-                    ? frame.LineContent.Substring(0, Constants.LeafNodeDisplayMaxLength - 3) + "..."
+                var maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 60;
+                displayText = frame.LineContent.Length > maxLength
+                    ? frame.LineContent.Substring(0, maxLength - 3) + "..."
                     : frame.LineContent;
             }
             else if (!string.IsNullOrEmpty(frame.FileName))

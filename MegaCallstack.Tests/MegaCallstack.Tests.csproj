@@ -37,6 +37,8 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MegaCallstackSettingsTests.cs" />
+    <Compile Include="SettingsServiceTests.cs" />
     <Compile Include="CallstackCaptureServiceTests.cs" />
     <Compile Include="CallstackFrameTests.cs" />
     <Compile Include="CallstackSessionTests.cs" />

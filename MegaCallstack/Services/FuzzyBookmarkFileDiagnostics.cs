@@ -13,20 +13,24 @@ namespace MegaCallstack.Services
         private readonly object _lock = new object();
         private readonly Dictionary<string, OperationState> _operations = new Dictionary<string, OperationState>();
 
+        public bool IsDiagnosticsEnabled { get; set; } = true;
+
         public FuzzyBookmarkFileDiagnostics(string outputDirectory)
         {
             if (string.IsNullOrWhiteSpace(outputDirectory))
                 throw new ArgumentException("Output directory is required.", nameof(outputDirectory));
             _outputDirectory = outputDirectory;
-            if (!Directory.Exists(_outputDirectory))
-                Directory.CreateDirectory(_outputDirectory);
         }
 
         public string BeginOperation(string filePath)
         {
+            if (!IsDiagnosticsEnabled)
+                return null;
+
             if (string.IsNullOrWhiteSpace(filePath))
                 return null;
 
+            EnsureDirectoryExists();
             string baseId = BuildOperationId(filePath);
             lock (_lock)
             {
@@ -44,6 +48,9 @@ namespace MegaCallstack.Services
 
         public void OnScopeParsed(string operationId, ScopeNode root, IReadOnlyList<string> lines)
         {
+            if (!IsDiagnosticsEnabled)
+                return;
+
             if (string.IsNullOrWhiteSpace(operationId) || root == null) return;
             var serializable = SerializableScopeNode.FromScopeNode(root);
             var wrapper = new ScopeParserOutput
@@ -58,6 +65,9 @@ namespace MegaCallstack.Services
 
         public void OnBookmarkCreated(string operationId, int originalLine, FuzzyBookmark bookmark, ScopeNodeSummary deepestScope)
         {
+            if (!IsDiagnosticsEnabled)
+                return;
+
             if (string.IsNullOrWhiteSpace(operationId)) return;
             var details = new CreateBookmarkDetails
             {
@@ -70,6 +80,9 @@ namespace MegaCallstack.Services
 
         public void OnBookmarksResolved(string operationId, IReadOnlyList<ResolveBookmarkDetails> details)
         {
+            if (!IsDiagnosticsEnabled)
+                return;
+
             if (string.IsNullOrWhiteSpace(operationId)) return;
             AppendToResolveLog(operationId, FuzzyBookmarkDiagnosticsFormatter.FormatBookmarksResolved(details));
         }
@@ -124,6 +137,12 @@ namespace MegaCallstack.Services
             {
                 File.WriteAllText(filePath, content);
             }
+        }
+
+        private void EnsureDirectoryExists()
+        {
+            if (!Directory.Exists(_outputDirectory))
+                Directory.CreateDirectory(_outputDirectory);
         }
 
         private bool OperationFilesExist(string operationId)

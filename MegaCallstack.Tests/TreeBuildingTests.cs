@@ -140,14 +140,15 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main.cs", "main");
-            callstack.Frames[0].LineContent = new string('x', Constants.LeafNodeDisplayMaxLength + 10);
+            int maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 120;
+            callstack.Frames[0].LineContent = new string('x', maxLength + 10);
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual(Constants.LeafNodeDisplayMaxLength, leafNode.DisplayText.Length);
+            Assert.AreEqual(maxLength, leafNode.DisplayText.Length);
             Assert.IsTrue(leafNode.DisplayText.EndsWith("..."));
         }
 
@@ -157,14 +158,15 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main.cs", "main");
-            callstack.Frames[0].LineContent = new string('x', Constants.LeafNodeDisplayMaxLength);
+            int maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 120;
+            callstack.Frames[0].LineContent = new string('x', maxLength);
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual(new string('x', Constants.LeafNodeDisplayMaxLength), leafNode.DisplayText);
+            Assert.AreEqual(new string('x', maxLength), leafNode.DisplayText);
         }
 
         [TestMethod]

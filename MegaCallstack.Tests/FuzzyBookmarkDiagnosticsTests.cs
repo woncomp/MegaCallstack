@@ -11,17 +11,26 @@ namespace MegaCallstack.Tests
     public class FuzzyBookmarkDiagnosticsTests
     {
         private string _tempDirectory;
+        private MegaCallstack.Models.MegaCallstackSettings _originalSettings;
 
         [TestInitialize]
         public void Initialize()
         {
             _tempDirectory = Path.Combine(Path.GetTempPath(), "MegaCallstack_DiagnosticsTests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDirectory);
+
+            _originalSettings = SettingsService.CurrentSettings;
+            SettingsService.CurrentSettings = new MegaCallstack.Models.MegaCallstackSettings
+            {
+                BookmarkFileDiagnosticsEnabled = true
+            };
         }
 
         [TestCleanup]
         public void Cleanup()
         {
+            SettingsService.CurrentSettings = _originalSettings;
+
             try
             {
                 if (Directory.Exists(_tempDirectory))

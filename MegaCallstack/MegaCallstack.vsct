@@ -25,6 +25,12 @@
           <ButtonText>Mega Callstack Window</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidMegaCallstackCmdSet" id="cmdIdSettings" priority="0x0200" type="Button">
+        <Parent guid="guidMegaCallstackCmdSet" id="MegaCallstackMenuGroup"/>
+        <Strings>
+          <ButtonText>Settings</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -34,6 +40,7 @@
       <IDSymbol name="MegaCallstackSubMenu" value="0x1010"/>
       <IDSymbol name="MegaCallstackMenuGroup" value="0x1020"/>
       <IDSymbol name="cmdIdShowMegaCallstackWindow" value="0x0100"/>
+      <IDSymbol name="cmdIdSettings" value="0x0200"/>
     </GuidSymbol>
   </Symbols>
 </CommandTable>

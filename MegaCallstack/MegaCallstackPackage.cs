@@ -5,6 +5,8 @@ using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using MegaCallstack.Dialogs;
+using MegaCallstack.Services;
 using MegaCallstack.ToolWindows;
 using Task = System.Threading.Tasks.Task;
 
@@ -27,6 +29,7 @@ namespace MegaCallstack
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             Logger.Log($"Package: Initialized (version {version})");
             await ShowMegaCallstackWindowCommand.InitializeAsync(this);
+            await SettingsCommand.InitializeAsync(this);
         }
     }
 
@@ -73,6 +76,49 @@ namespace MegaCallstack
 
                 IVsWindowFrame windowFrame = (IVsWindowFrame)window.Frame;
                 Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(windowFrame.Show());
+            });
+        }
+    }
+
+    internal sealed class SettingsCommand
+    {
+        public const int CommandId = 0x0200;
+        public static readonly Guid CommandSet = new Guid(MegaCallstackPackage.CommandSetGuidString);
+
+        private readonly AsyncPackage _package;
+        private readonly ISettingsService _settingsService;
+
+        private SettingsCommand(AsyncPackage package, OleMenuCommandService commandService)
+        {
+            _package = package ?? throw new ArgumentNullException(nameof(package));
+            commandService = commandService ?? throw new ArgumentNullException(nameof(commandService));
+            _settingsService = new SettingsService();
+
+            var menuCommandID = new CommandID(CommandSet, CommandId);
+            var menuItem = new MenuCommand(Execute, menuCommandID);
+            commandService.AddCommand(menuItem);
+        }
+
+        public static SettingsCommand Instance { get; private set; }
+
+        private Microsoft.VisualStudio.Shell.IAsyncServiceProvider ServiceProvider => _package;
+
+        public static async Task InitializeAsync(AsyncPackage package)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
+
+            OleMenuCommandService commandService = await package.GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
+            Instance = new SettingsCommand(package, commandService);
+        }
+
+        private void Execute(object sender, EventArgs e)
+        {
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                var dialog = new SettingsDialog(_settingsService);
+                dialog.ShowDialog();
             });
         }
     }

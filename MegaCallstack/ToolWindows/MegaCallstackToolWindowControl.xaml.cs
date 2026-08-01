@@ -63,7 +63,11 @@ namespace MegaCallstack.ToolWindows
 
             var dte = (EnvDTE.DTE)ServiceProvider.GlobalProvider.GetService(typeof(EnvDTE.DTE));
             string diagnosticsDirectory = Path.Combine(info.DataDirectory, Constants.DiagnosticsFolderName);
-            var diagnostics = new FuzzyBookmarkFileDiagnostics(diagnosticsDirectory);
+            var settingsService = new SettingsService();
+            var diagnostics = new FuzzyBookmarkFileDiagnostics(diagnosticsDirectory)
+            {
+                IsDiagnosticsEnabled = settingsService.Current.BookmarkFileDiagnosticsEnabled
+            };
             var bookmarkEngine = new FuzzyBookmarkEngine(diagnostics);
             var bookmarkResolver = new BookmarkResolver(bookmarkEngine);
             var captureService = new CallstackCaptureService(dte, info.UserCodeRoots, bookmarkEngine, bookmarkResolver);

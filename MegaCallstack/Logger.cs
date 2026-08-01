@@ -1,4 +1,5 @@
 using System;
+using MegaCallstack.Services;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 
@@ -23,9 +24,6 @@ namespace MegaCallstack
 
         public static void Log(string message)
         {
-            // Fast path: if the output pane was never created (e.g. before the
-            // package initializes, or in unit tests with no VS), skip the
-            // thread switch entirely rather than queuing work that can't write.
             if (_pane == null)
                 return;
 
@@ -40,6 +38,14 @@ namespace MegaCallstack
             catch
             {
             }
+        }
+
+        public static void LogDiagnostic(string message)
+        {
+            if (SettingsService.CurrentSettings?.DiagnosticLoggingEnabled != true)
+                return;
+
+            Log($"[Diag] {message}");
         }
 
         public static void Error(string message, Exception ex = null)
