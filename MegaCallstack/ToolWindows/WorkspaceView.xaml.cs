@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -161,6 +163,29 @@ namespace MegaCallstack.ToolWindows
 
                 if (result == MessageBoxResult.Yes)
                     _viewModel?.DeleteSessionCommand.Execute(session);
+            }
+        }
+
+        private void OpenSessionFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is CallstackSession session)
+            {
+                var folderPath = _viewModel?.Repository?.GetSessionFolderPath(session);
+                if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
+                {
+                    Process.Start(new ProcessStartInfo(folderPath)
+                    {
+                        UseShellExecute = true
+                    });
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "Session folder not found.",
+                        "Open Folder",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
         }
 
