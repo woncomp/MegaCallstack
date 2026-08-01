@@ -429,13 +429,21 @@
                                                           Moniker="{x:Static vscat:KnownMonikers.StatusOK}"
                                                           ToolTip="Active session"
                                                           Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
+                                        <vsimg:CrispImage Width="16" Height="16" Margin="4,0,0,0"
+                                                          Moniker="{x:Static vscat:KnownMonikers.StatusError}"
+                                                          ToolTip="Outdated session"
+                                                          Visibility="{Binding IsSupported, Converter={StaticResource InverseBoolToVis}}"/>
+                                        <TextBlock Margin="4,0,0,0" FontSize="11" Foreground="Gray"
+                                                   Text="Session is outdated"
+                                                   Visibility="{Binding IsSupported, Converter={StaticResource InverseBoolToVis}}"/>
                                     </StackPanel>
                                 </StackPanel>
 
                                 <Button x:Name="ActivateButton" Grid.Column="1" Style="{StaticResource SessionActionButtonStyle}"
                                         Tag="{Binding}"
                                         Click="ActivateSessionButton_Click"
-                                        ToolTip="Activate session">
+                                        ToolTip="Activate session"
+                                        IsEnabled="{Binding IsSupported}">
                                     <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Play}" Width="16" Height="16"/>
                                 </Button>
                                 <Button x:Name="DeleteButton" Grid.Column="2" Style="{StaticResource SessionActionButtonStyle}"

@@ -87,7 +87,7 @@ namespace MegaCallstack.Tests
             });
 
             var bookmarks = engine.CreateAll(new[] { 5 }, filePath);
-            var frame = new CallstackFrame("Main", filePath, 5) { Bookmark = bookmarks[0] };
+            var frame = new CallstackFrame("Main", filePath, 5) { Bookmark = bookmarks[0].ToOpaque() };
 
             File.WriteAllLines(filePath, new[]
             {
@@ -123,8 +123,8 @@ namespace MegaCallstack.Tests
             var bookmarksA = engine.CreateAll(new[] { 1 }, fileA);
             var bookmarksB = engine.CreateAll(new[] { 1 }, fileB);
 
-            var frameA = new CallstackFrame("M", fileA, 1) { Bookmark = bookmarksA[0] };
-            var frameB = new CallstackFrame("N", fileB, 1) { Bookmark = bookmarksB[0] };
+            var frameA = new CallstackFrame("M", fileA, 1) { Bookmark = bookmarksA[0].ToOpaque() };
+            var frameB = new CallstackFrame("N", fileB, 1) { Bookmark = bookmarksB[0].ToOpaque() };
 
             var session = new CallstackSession("Test");
             session.Callstacks.Add(new CallstackData(new List<CallstackFrame> { frameA, frameB }));

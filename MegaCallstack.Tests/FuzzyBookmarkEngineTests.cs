@@ -682,5 +682,121 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(0, FuzzyBookmark.RankOf(idLow));
             Assert.AreEqual(255, FuzzyBookmark.RankOf(idHigh));
         }
+
+        // ---------- Opaque/Base62 serialization ----------
+
+        [TestMethod]
+        public void ToOpaque_RoundTripsAllFields()
+        {
+            var original = new FuzzyBookmark
+            {
+                LineContent = "int target = 42;",
+                LineHash = FuzzyBookmarkEngine.FNV1a(0, "int target = 42;"),
+                ScopePath = new uint[] { 0x12345678, 0xABCDEF01 },
+                Ratio = 0.75,
+                PreContextHashes = new int[] { 111, 222 },
+                PostContextHashes = new int[] { 333, 444, 555 }
+            };
+
+            var opaque = original.ToOpaque();
+            var decoded = FuzzyBookmark.FromOpaque(opaque);
+
+            Assert.AreEqual(original.LineContent, decoded.LineContent);
+            Assert.AreEqual(original.LineHash, decoded.LineHash);
+            CollectionAssert.AreEqual(original.ScopePath, decoded.ScopePath);
+            Assert.AreEqual(original.Ratio, decoded.Ratio, 0.0001);
+            CollectionAssert.AreEqual(original.PreContextHashes, decoded.PreContextHashes);
+            CollectionAssert.AreEqual(original.PostContextHashes, decoded.PostContextHashes);
+        }
+
+        [TestMethod]
+        public void ToOpaque_JsonRoundTrip_PreservesAsBase62String()
+        {
+            var original = new FuzzyBookmark
+            {
+                LineContent = "class Program",
+                LineHash = 12345,
+                ScopePath = new uint[0],
+                Ratio = 0.0,
+                PreContextHashes = new int[0],
+                PostContextHashes = new int[0]
+            };
+
+            var opaque = original.ToOpaque();
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(opaque);
+            var roundTripped = Newtonsoft.Json.JsonConvert.DeserializeObject<FuzzyBookmarkOpaque>(json);
+
+            Assert.IsNotNull(roundTripped);
+            var decoded = FuzzyBookmark.FromOpaque(roundTripped);
+            Assert.AreEqual(original.LineContent, decoded.LineContent);
+            Assert.AreEqual(original.LineHash, decoded.LineHash);
+
+            StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("\"LineContent\""));
+        }
+
+        [TestMethod]
+        public void ResolveAll_WithOpaqueBookmarks_ProducesSameResults()
+        {
+            var engine = new FuzzyBookmarkEngine();
+            var path = Path.Combine(Path.GetTempPath(), "fbm_opaque_" + Guid.NewGuid() + ".cs");
+            var original = new[]
+            {
+                "class Program",
+                "{",
+                "    static void Main()",
+                "    {",
+                "        Console.WriteLine(\"hi\");",
+                "    }",
+                "}"
+            };
+            File.WriteAllLines(path, original);
+            try
+            {
+                var bookmarks = engine.CreateAll(new[] { 5 }, path);
+                var opaqueBookmarks = bookmarks.Select(b => b.ToOpaque()).ToList();
+
+                var edited = new[]
+                {
+                    "// added header",
+                    "class Program",
+                    "{",
+                    "    static void Main()",
+                    "    {",
+                    "        Console.WriteLine(\"hi\");",
+                    "    }",
+                    "}"
+                };
+                File.WriteAllLines(path, edited);
+
+                var resultsFromOpaque = engine.ResolveAll(opaqueBookmarks, path);
+                var resultsFromDecoded = engine.ResolveAll(bookmarks, path);
+
+                Assert.AreEqual(resultsFromDecoded.Count, resultsFromOpaque.Count);
+                Assert.AreEqual(resultsFromDecoded[0].Line, resultsFromOpaque[0].Line);
+                Assert.AreEqual(resultsFromDecoded[0].MatchLevel, resultsFromOpaque[0].MatchLevel);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void Base62EncodeDecode_RoundTripsLeadingZeros()
+        {
+            byte[] data = new byte[] { 0x00, 0x00, 0x01, 0x02, 0x03 };
+            string encoded = FuzzyBookmarkOpaqueJsonConverter.Base62Encode(data);
+            byte[] decoded = FuzzyBookmarkOpaqueJsonConverter.Base62Decode(encoded);
+            CollectionAssert.AreEqual(data, decoded);
+        }
+
+        [TestMethod]
+        public void Base62EncodeDecode_RoundTripsEmptyBuffer()
+        {
+            byte[] data = new byte[0];
+            string encoded = FuzzyBookmarkOpaqueJsonConverter.Base62Encode(data);
+            byte[] decoded = FuzzyBookmarkOpaqueJsonConverter.Base62Decode(encoded);
+            CollectionAssert.AreEqual(data, decoded);
+        }
     }
 }

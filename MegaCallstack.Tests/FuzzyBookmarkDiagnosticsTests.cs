@@ -99,6 +99,7 @@ namespace MegaCallstack.Tests
             });
 
             var bookmarks = engine.CreateAll(new[] { 5 }, filePath);
+            var opaqueBookmarks = bookmarks.Select(b => b.ToOpaque()).ToList();
 
             File.WriteAllLines(filePath, new[]
             {
@@ -112,7 +113,7 @@ namespace MegaCallstack.Tests
                 "}"
             });
 
-            var results = engine.ResolveAll(bookmarks, filePath);
+            var results = engine.ResolveAll(opaqueBookmarks, filePath);
 
             var files = Directory.GetFiles(_tempDirectory, "*-scope-parser.json");
             Assert.IsTrue(files.Length >= 1);
@@ -121,6 +122,10 @@ namespace MegaCallstack.Tests
             string log = File.ReadAllText(resolveLog);
 
             StringAssert.Contains(log, "=== Bookmark Resolved ===");
+            StringAssert.Contains(log, "Encoded bookmark:");
+            StringAssert.Contains(log, opaqueBookmarks[0].ToString());
+            StringAssert.Contains(log, $"Line content: {bookmarks[0].LineContent}");
+            StringAssert.Contains(log, $"Line hash: {bookmarks[0].LineHash}");
             StringAssert.Contains(log, "L1 exact candidates:");
             StringAssert.Contains(log, "L2a full context:");
             StringAssert.Contains(log, "L2b partial context:");

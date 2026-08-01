@@ -42,9 +42,13 @@ namespace MegaCallstack.Models
             CreatedTime = DateTime.Now;
         }
 
+        [JsonIgnore]
+        public bool IsSupported => SchemaVersion == Constants.SessionSchemaVersion;
+
         public CallstackSession(string name) : this()
         {
             Name = name;
+            SchemaVersion = Constants.SessionSchemaVersion;
         }
     }
 }

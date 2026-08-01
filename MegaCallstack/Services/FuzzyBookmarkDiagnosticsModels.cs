@@ -15,6 +15,7 @@ namespace MegaCallstack.Services
     {
         public int OriginalLine { get; set; }
         public FuzzyBookmark Bookmark { get; set; }
+        public FuzzyBookmarkOpaque EncodedBookmark { get; set; }
         public double Seed { get; set; }
         public ScopeMatchSummary ScopeMatch { get; set; }
         public ResolveDecisionDetails Decision { get; set; }
@@ -157,9 +158,20 @@ namespace MegaCallstack.Services
             {
                 sb.AppendLine("=== Bookmark Resolved ===");
                 sb.AppendLine($"Original line: {item.OriginalLine}");
-                sb.AppendLine($"Line content: {item.Bookmark?.LineContent}");
-                sb.AppendLine($"Scope path: {FormatScopePath(item.Bookmark?.ScopePath)}");
-                sb.AppendLine($"Ratio: {item.Bookmark?.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
+                sb.AppendLine($"Encoded bookmark: {item.EncodedBookmark?.ToString() ?? "(none)"}");
+                if (item.Bookmark != null)
+                {
+                    sb.AppendLine($"Line content: {item.Bookmark.LineContent}");
+                    sb.AppendLine($"Line hash: {item.Bookmark.LineHash}");
+                    sb.AppendLine($"Scope path: {FormatScopePath(item.Bookmark.ScopePath)}");
+                    sb.AppendLine($"Ratio: {item.Bookmark.Ratio.ToString("0.000", CultureInfo.InvariantCulture)}");
+                    sb.AppendLine($"Pre-context hashes: {FormatHashes(item.Bookmark.PreContextHashes)}");
+                    sb.AppendLine($"Post-context hashes: {FormatHashes(item.Bookmark.PostContextHashes)}");
+                }
+                else
+                {
+                    sb.AppendLine("Decoded bookmark: (none)");
+                }
                 if (item.Decision != null)
                 {
                     var details = item.Decision;

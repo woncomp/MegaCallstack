@@ -45,7 +45,7 @@ namespace MegaCallstack.Services
                     var bookmarks = _bookmarkEngine.CreateAll(lineNumbers, filePath);
                     for (int i = 0; i < ordered.Count; i++)
                     {
-                        ordered[i].frame.Bookmark = bookmarks[i];
+                        ordered[i].frame.Bookmark = bookmarks[i]?.ToOpaque();
                     }
                 }
                 catch (Exception ex)
@@ -94,10 +94,9 @@ namespace MegaCallstack.Services
                 if (!File.Exists(filePath))
                     continue;
 
-                var bookmarks = group.Select(f => f.Bookmark).ToList();
                 try
                 {
-                    var results = _bookmarkEngine.ResolveAll(bookmarks, filePath);
+                    var results = _bookmarkEngine.ResolveAll(group.Select(f => f.Bookmark).ToList(), filePath);
                     var framesInGroup = group.ToList();
                     for (int i = 0; i < framesInGroup.Count; i++)
                     {

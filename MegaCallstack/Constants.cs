@@ -15,6 +15,6 @@ namespace MegaCallstack
         /// Schema version for session.json. Increment when the session metadata
         /// persistence format changes in a non-backward-compatible way.
         /// </summary>
-        public const int SessionSchemaVersion = 0;
+        public const int SessionSchemaVersion = 1;
     }
 }

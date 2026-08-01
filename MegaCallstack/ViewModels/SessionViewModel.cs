@@ -85,7 +85,7 @@ namespace MegaCallstack.ViewModels
             SwitchToSessionViewCommand = new RelayCommand(ExecuteSwitchToSessionView);
             SwitchToTreeViewCommand = new RelayCommand(ExecuteSwitchToTreeView);
             ResetActiveSessionCommand = new RelayCommand(ExecuteResetActiveSession);
-            ActivateSessionCommand = new RelayCommand<CallstackSession>(ExecuteActivateSession);
+            ActivateSessionCommand = new RelayCommand<CallstackSession>(ExecuteActivateSession, CanActivateSession);
             DeleteSessionCommand = new RelayCommand<CallstackSession>(ExecuteDeleteSession);
             DeleteSelectedSessionCommand = new RelayCommand(ExecuteDeleteSelectedSession, CanDeleteSelectedSession);
             BeginRenameSelectedSessionCommand = new RelayCommand(ExecuteBeginRenameSelectedSession, CanBeginRenameSelectedSession);
@@ -215,7 +215,7 @@ namespace MegaCallstack.ViewModels
         public CallstackSession PreviousSession
         {
             get => _sessionData.PreviousSessionId != null
-                ? _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.PreviousSessionId)
+                ? _sessionData.Sessions.FirstOrDefault(s => s.Id == _sessionData.PreviousSessionId && s.IsSupported)
                 : null;
         }
 
@@ -331,12 +331,13 @@ namespace MegaCallstack.ViewModels
             var previousId = _sessionData.PreviousSessionId;
 
             if (!string.IsNullOrEmpty(previousId) &&
-                _sessionData.Sessions.Any(s => s.Id == previousId))
+                _sessionData.Sessions.Any(s => s.Id == previousId && s.IsSupported))
             {
                 return;
             }
 
             var fallback = _sessionData.Sessions
+                .Where(s => s.IsSupported)
                 .OrderByDescending(s => s.CreatedTime)
                 .FirstOrDefault();
 
@@ -707,6 +708,7 @@ namespace MegaCallstack.ViewModels
             {
                 var loaded = _repository.LoadDataAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                 SyncSessionData(loaded);
+                ResolvePreviousSession();
             }
             RefreshSessionsList();
             if (SelectedSession == null && FilteredSessions.Count > 0)
@@ -741,8 +743,11 @@ namespace MegaCallstack.ViewModels
 
         private async void ExecuteActivateSession(CallstackSession session)
         {
-            if (session == null)
+            if (session == null || !session.IsSupported)
+            {
+                Logger.Log("SessionViewModel: Cannot activate an outdated or unsupported session.");
                 return;
+            }
 
             SetActiveSession(session);
             _activeSession = session;
@@ -759,6 +764,11 @@ namespace MegaCallstack.ViewModels
             IsTreeViewMode = true;
         }
 
+        private bool CanActivateSession(CallstackSession session)
+        {
+            return session != null && session.IsSupported;
+        }
+
         private void ExecuteBeginRenameSelectedSession()
         {
             if (_selectedSession == null)
@@ -772,7 +782,7 @@ namespace MegaCallstack.ViewModels
 
         private bool CanBeginRenameSelectedSession()
         {
-            return _selectedSession != null;
+            return _selectedSession != null && _selectedSession.IsSupported;
         }
 
         private async void ExecuteSaveRenameSelectedSession()

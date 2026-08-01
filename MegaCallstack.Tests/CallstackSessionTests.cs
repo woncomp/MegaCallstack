@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -233,9 +233,10 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
-        public async Task LoadDataAsync_LegacySessionWithoutSchemaVersion_FallsBackToZero()
+        public async Task LoadDataAsync_LegacySessionWithoutSchemaVersion_IsLoadedButUnsupported()
         {
             var session = CreateSession("LegacySession");
+            session.SchemaVersion = 0;
             var folder = _repository.GetOrCreateSessionFolder(session);
             var sessionFile = Path.Combine(folder, Constants.SessionFileName);
             var legacyJson = $"{{\"Id\":\"{session.Id}\",\"Name\":\"LegacySession\",\"CreatedTime\":\"{session.CreatedTime:O}\",\"FolderName\":\"{session.FolderName}\"}}";
@@ -245,6 +246,39 @@ namespace MegaCallstack.Tests
 
             Assert.AreEqual(1, loaded.Sessions.Count);
             Assert.AreEqual(0, loaded.Sessions[0].SchemaVersion);
+            Assert.IsFalse(loaded.Sessions[0].IsSupported);
+        }
+
+        [TestMethod]
+        public void ResolvePreviousSession_FallsBackToNewestSupportedSession()
+        {
+            var outdated = CreateSession("Outdated");
+            outdated.CreatedTime = new DateTime(2022, 12, 31);
+            outdated.SchemaVersion = 0;
+
+            var supported = CreateSession("Supported");
+            supported.CreatedTime = new DateTime(2023, 1, 1);
+
+            _repository.SaveSessionMetadataAsync(outdated).Wait();
+            _repository.SaveSessionMetadataAsync(supported).Wait();
+
+            var viewModel = CreateViewModel();
+            viewModel.LoadDataAsync().Wait();
+
+            Assert.AreEqual(supported.Id, _sessionData.PreviousSessionId);
+            Assert.AreEqual("Supported", viewModel.PreviousSessionName);
+        }
+
+        [TestMethod]
+        public void ActivateSessionCommand_CannotActivateUnsupportedSession()
+        {
+            var session = CreateSession("Outdated");
+            session.SchemaVersion = 0;
+
+            var viewModel = CreateViewModel();
+            viewModel.TriggerSwitchToSessionView();
+
+            Assert.IsFalse(viewModel.ActivateSessionCommand.CanExecute(session));
         }
 
         [TestMethod]
@@ -623,7 +657,7 @@ namespace MegaCallstack.Tests
 
             var engine = new FuzzyBookmarkEngine();
             var bookmarks = engine.CreateAll(new[] { 5 }, path);
-            var bookmark = bookmarks[0];
+            var bookmark = bookmarks[0].ToOpaque();
 
             var edited = new[]
             {
@@ -679,7 +713,7 @@ namespace MegaCallstack.Tests
 
             var frame = new CallstackFrame("Main", "missing_file_that_does_not_exist.cs", 42)
             {
-                Bookmark = bookmark
+                Bookmark = bookmark.ToOpaque()
             };
 
             var session = new CallstackSession("Test");

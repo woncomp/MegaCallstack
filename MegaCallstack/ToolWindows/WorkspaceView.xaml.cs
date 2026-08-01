@@ -166,7 +166,7 @@ namespace MegaCallstack.ToolWindows
 
         private void SessionViewContent_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (_viewModel?.SelectedSession != null)
+            if (_viewModel?.SelectedSession != null && _viewModel.ActivateSessionCommand.CanExecute(_viewModel.SelectedSession))
                 _viewModel.ActivateSessionCommand.Execute(_viewModel.SelectedSession);
         }
     }

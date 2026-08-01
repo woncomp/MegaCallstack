@@ -44,10 +44,10 @@ namespace MegaCallstack.Services
                         session.Callstacks = new List<CallstackData>();
                         session.NodeColors = new Dictionary<int, string>();
                         session.CollapsedNodes = new Dictionary<int, bool>();
-                session.HiddenAncestorNodes = new Dictionary<int, bool>();
-                session.NodeNotes = new Dictionary<int, List<NodeNote>>();
-                session.ResolvedFileWriteTimes = new Dictionary<string, long>();
-                session.IsLoaded = false;
+                        session.HiddenAncestorNodes = new Dictionary<int, bool>();
+                        session.NodeNotes = new Dictionary<int, List<NodeNote>>();
+                        session.ResolvedFileWriteTimes = new Dictionary<string, long>();
+                        session.IsLoaded = false;
                         data.Sessions.Add(session);
                     }
                 }
@@ -70,7 +70,7 @@ namespace MegaCallstack.Services
                 {
                     var json = File.ReadAllText(filePath);
                     var previousId = JsonConvert.DeserializeObject<string>(json);
-                    if (!string.IsNullOrEmpty(previousId) && data.Sessions.Any(s => s.Id == previousId))
+                    if (!string.IsNullOrEmpty(previousId) && data.Sessions.Any(s => s.Id == previousId && s.IsSupported))
                     {
                         data.PreviousSessionId = previousId;
                         return;
@@ -85,6 +85,7 @@ namespace MegaCallstack.Services
             if (data.Sessions.Count > 0)
             {
                 var lastSession = data.Sessions
+                    .Where(s => s.IsSupported)
                     .OrderByDescending(s => s.CreatedTime)
                     .FirstOrDefault();
                 if (lastSession != null)
@@ -179,7 +180,8 @@ namespace MegaCallstack.Services
             {
                 Id = session.Id,
                 Name = session.Name,
-                CreatedTime = session.CreatedTime
+                CreatedTime = session.CreatedTime,
+                SchemaVersion = session.SchemaVersion
             };
             await WriteJsonAsync(filePath, metadata);
         }

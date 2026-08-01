@@ -78,8 +78,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace MegaCallstack.Services
 {
@@ -191,6 +193,35 @@ namespace MegaCallstack.Services
 
         // ---------- Resolve ----------
 
+        /// <summary>
+        /// Resolves opaque bookmarks against a (possibly edited) file, decoding them to
+        /// <see cref="FuzzyBookmark"/> instances internally.
+        /// </summary>
+        public IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmarkOpaque> opaqueBookmarks, string filePath)
+        {
+            if (opaqueBookmarks == null)
+                throw new ArgumentNullException(nameof(opaqueBookmarks));
+
+            var opaqueList = opaqueBookmarks.ToList();
+            FuzzyBookmark[] bookmarks = opaqueList
+                .Select(o => o == null ? null : FuzzyBookmark.FromOpaque(o))
+                .ToArray();
+
+            var lines = ReadAllLinesSafe(filePath);
+            if (lines == null || lines.Length == 0)
+                return bookmarks.Select(_ => new ResolveResult(0, 0.0, "NotFound")).ToList();
+
+            string operationId = _diagnostics?.BeginOperation(filePath);
+            try
+            {
+                return ResolveAllCore(bookmarks, lines, operationId, opaqueList);
+            }
+            finally
+            {
+                _diagnostics?.CompleteOperation(operationId);
+            }
+        }
+
         public IReadOnlyList<ResolveResult> ResolveAll(IEnumerable<FuzzyBookmark> bookmarks, string filePath)
         {
             if (bookmarks == null) throw new ArgumentNullException(nameof(bookmarks));
@@ -215,7 +246,7 @@ namespace MegaCallstack.Services
             return ResolveAllCore(bookmarks, lines, null);
         }
 
-        private IReadOnlyList<ResolveResult> ResolveAllCore(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines, string operationId)
+        private IReadOnlyList<ResolveResult> ResolveAllCore(IEnumerable<FuzzyBookmark> bookmarks, IReadOnlyList<string> lines, string operationId, IList<FuzzyBookmarkOpaque> encodedBookmarks = null)
         {
             if (lines == null || lines.Count == 0)
                 return bookmarks.Select(_ => new ResolveResult(0, 0.0, "NotFound")).ToList();
@@ -226,12 +257,17 @@ namespace MegaCallstack.Services
 
             var resolvedDetails = _diagnostics != null ? new List<ResolveBookmarkDetails>() : null;
             var results = new List<ResolveResult>();
+            int index = 0;
             foreach (var bm in bookmarks)
             {
-                if (bm == null) { results.Add(new ResolveResult(0, 0.0, "NotFound")); continue; }
+                if (bm == null) { results.Add(new ResolveResult(0, 0.0, "NotFound")); index++; continue; }
                 var scopeMatch = MatchScopes(bm.ScopePath, root);
                 double seed0 = DeriveSeed(bm.Ratio, scopeMatch.Node, lines.Count);
-                results.Add(ResolveCore(bm, normalized, seed0, scopeMatch, operationId, resolvedDetails));
+                FuzzyBookmarkOpaque encoded = encodedBookmarks != null && index < encodedBookmarks.Count
+                    ? encodedBookmarks[index]
+                    : null;
+                results.Add(ResolveCore(bm, normalized, seed0, scopeMatch, operationId, resolvedDetails, encoded));
+                index++;
             }
             _diagnostics?.OnBookmarksResolved(operationId, resolvedDetails);
             return results;
@@ -239,7 +275,7 @@ namespace MegaCallstack.Services
 
         // ---------- Core resolution ----------
 
-        private ResolveResult ResolveCore(FuzzyBookmark bookmark, string[] normalized, double seed0, ScopeMatch scopeMatch, string operationId, List<ResolveBookmarkDetails> resolvedDetails)
+        private ResolveResult ResolveCore(FuzzyBookmark bookmark, string[] normalized, double seed0, ScopeMatch scopeMatch, string operationId, List<ResolveBookmarkDetails> resolvedDetails, FuzzyBookmarkOpaque encodedBookmark = null)
         {
             int lineCount = normalized.Length;
             var details = new ResolveDecisionDetails
@@ -267,7 +303,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(fullMatch.Value, scopeMatch, "ContextFull", 0.9);
                     details.Result = result;
-                    RecordResolvedDetails(resolvedDetails, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details, encodedBookmark);
                     return result;
                 }
 
@@ -282,7 +318,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(partial.Value, scopeMatch, "ContextPartial", 0.7);
                     details.Result = result;
-                    RecordResolvedDetails(resolvedDetails, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details, encodedBookmark);
                     return result;
                 }
 
@@ -292,7 +328,7 @@ namespace MegaCallstack.Services
                 {
                     var result = BuildResult(ClampLine((int)Math.Round(seed0) + 1, lineCount), scopeMatch, "Fallback", 0.1);
                     details.Result = result;
-                    RecordResolvedDetails(resolvedDetails, bookmark, details);
+                    RecordResolvedDetails(resolvedDetails, bookmark, details, encodedBookmark);
                     return result;
                 }
             }
@@ -308,24 +344,25 @@ namespace MegaCallstack.Services
             {
                 var result = BuildResult(fuzzyLine, scopeMatch, "Fuzzy", 0.5);
                 details.Result = result;
-                RecordResolvedDetails(resolvedDetails, bookmark, details);
+                RecordResolvedDetails(resolvedDetails, bookmark, details, encodedBookmark);
                 return result;
             }
 
             // L4: clamp fallback.
             var fallback = BuildResult(ClampLine((int)Math.Round(seed0) + 1, lineCount), scopeMatch, "Fallback", 0.1);
             details.Result = fallback;
-            RecordResolvedDetails(resolvedDetails, bookmark, details);
+            RecordResolvedDetails(resolvedDetails, bookmark, details, encodedBookmark);
             return fallback;
         }
 
-        private static void RecordResolvedDetails(List<ResolveBookmarkDetails> resolvedDetails, FuzzyBookmark bookmark, ResolveDecisionDetails details)
+        private static void RecordResolvedDetails(List<ResolveBookmarkDetails> resolvedDetails, FuzzyBookmark bookmark, ResolveDecisionDetails details, FuzzyBookmarkOpaque encodedBookmark = null)
         {
             if (resolvedDetails == null) return;
             resolvedDetails.Add(new ResolveBookmarkDetails
             {
                 OriginalLine = details.Result?.Line ?? 0,
                 Bookmark = bookmark,
+                EncodedBookmark = encodedBookmark,
                 Seed = details.Seed,
                 ScopeMatch = details.ScopeMatch,
                 Decision = details
@@ -872,6 +909,101 @@ namespace MegaCallstack.Services
     /// </summary>
     public sealed class FuzzyBookmark
     {
+        private const byte SerializationFormatVersion = 1;
+
+        /// <summary>
+        /// Serializes this bookmark into an opaque byte buffer. The buffer can later be converted
+        /// back into an equivalent <see cref="FuzzyBookmark"/> via <see cref="FromOpaque"/>.
+        /// </summary>
+        public FuzzyBookmarkOpaque ToOpaque()
+        {
+            using (var stream = new MemoryStream())
+            using (var writer = new BinaryWriter(stream, Encoding.UTF8))
+            {
+                writer.Write(SerializationFormatVersion);
+
+                string content = LineContent ?? string.Empty;
+                writer.Write(content.Length);
+                writer.Write(content.ToCharArray());
+
+                writer.Write(LineHash);
+                writer.Write(Ratio);
+
+                uint[] scopePath = ScopePath ?? new uint[0];
+                writer.Write(scopePath.Length);
+                foreach (uint id in scopePath)
+                    writer.Write(id);
+
+                int[] pre = PreContextHashes ?? new int[0];
+                writer.Write(pre.Length);
+                foreach (int hash in pre)
+                    writer.Write(hash);
+
+                int[] post = PostContextHashes ?? new int[0];
+                writer.Write(post.Length);
+                foreach (int hash in post)
+                    writer.Write(hash);
+
+                writer.Flush();
+                return new FuzzyBookmarkOpaque(stream.ToArray());
+            }
+        }
+
+        /// <summary>
+        /// Restores a <see cref="FuzzyBookmark"/> from an opaque byte buffer produced by
+        /// <see cref="ToOpaque"/>.
+        /// </summary>
+        public static FuzzyBookmark FromOpaque(FuzzyBookmarkOpaque opaque)
+        {
+            if (opaque == null)
+                throw new ArgumentNullException(nameof(opaque));
+
+            byte[] data = opaque.Data;
+            if (data == null || data.Length == 0)
+                throw new ArgumentException("Opaque bookmark data is empty.", nameof(opaque));
+
+            using (var stream = new MemoryStream(data, writable: false))
+            using (var reader = new BinaryReader(stream, Encoding.UTF8))
+            {
+                byte formatVersion = reader.ReadByte();
+                if (formatVersion != SerializationFormatVersion)
+                    throw new InvalidDataException($"Unsupported bookmark opaque format version {formatVersion}.");
+
+                int contentLength = reader.ReadInt32();
+                string content = contentLength > 0
+                    ? new string(reader.ReadChars(contentLength))
+                    : string.Empty;
+
+                int lineHash = reader.ReadInt32();
+                double ratio = reader.ReadDouble();
+
+                int scopePathLength = reader.ReadInt32();
+                uint[] scopePath = new uint[scopePathLength];
+                for (int i = 0; i < scopePathLength; i++)
+                    scopePath[i] = reader.ReadUInt32();
+
+                int preLength = reader.ReadInt32();
+                int[] pre = new int[preLength];
+                for (int i = 0; i < preLength; i++)
+                    pre[i] = reader.ReadInt32();
+
+                int postLength = reader.ReadInt32();
+                int[] post = new int[postLength];
+                for (int i = 0; i < postLength; i++)
+                    post[i] = reader.ReadInt32();
+
+                return new FuzzyBookmark
+                {
+                    LineContent = content,
+                    LineHash = lineHash,
+                    Ratio = ratio,
+                    ScopePath = scopePath,
+                    PreContextHashes = pre,
+                    PostContextHashes = post
+                };
+            }
+        }
+
         /// <summary>Normalized text of the target line (trimmed, whitespace-collapsed, tab->space).</summary>
         public string LineContent { get; set; }
 
@@ -935,6 +1067,136 @@ namespace MegaCallstack.Services
                 sb.AppendFormat(CultureInfo.InvariantCulture, "0x{0:x8}", path[i]);
             }
             return sb.ToString();
+        }
+    }
+
+    /// <summary>
+    /// An opaque, serializable representation of a <see cref="FuzzyBookmark"/>. Callers should not
+    /// inspect the byte buffer; convert between this type and <see cref="FuzzyBookmark"/> using
+    /// <see cref="FuzzyBookmark.ToOpaque"/> and <see cref="FuzzyBookmark.FromOpaque"/>.
+    /// Persisted as a Base62 string via <see cref="FuzzyBookmarkOpaqueJsonConverter"/>.
+    /// </summary>
+    [JsonConverter(typeof(FuzzyBookmarkOpaqueJsonConverter))]
+    public sealed class FuzzyBookmarkOpaque
+    {
+        /// <summary>The raw serialized bookmark bytes.</summary>
+        public byte[] Data { get; }
+
+        public FuzzyBookmarkOpaque(byte[] data)
+        {
+            Data = data ?? throw new ArgumentNullException(nameof(data));
+        }
+
+        public override string ToString()
+        {
+            return FuzzyBookmarkOpaqueJsonConverter.Base62Encode(Data);
+        }
+    }
+
+    /// <summary>
+    /// Serializes a <see cref="FuzzyBookmarkOpaque"/> to and from a Base62 string.
+    /// </summary>
+    public sealed class FuzzyBookmarkOpaqueJsonConverter : JsonConverter<FuzzyBookmarkOpaque>
+    {
+        private const string Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private static readonly BigInteger Base = new BigInteger(62);
+
+        public override void WriteJson(JsonWriter writer, FuzzyBookmarkOpaque value, JsonSerializer serializer)
+        {
+            if (value == null)
+            {
+                writer.WriteNull();
+                return;
+            }
+
+            writer.WriteValue(Base62Encode(value.Data));
+        }
+
+        public override FuzzyBookmarkOpaque ReadJson(JsonReader reader, Type objectType, FuzzyBookmarkOpaque existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            if (reader.TokenType == JsonToken.Null)
+                return null;
+
+            if (reader.TokenType != JsonToken.String)
+                throw new JsonSerializationException("Expected string token for FuzzyBookmarkOpaque.");
+
+            string encoded = (string)reader.Value;
+            if (string.IsNullOrEmpty(encoded))
+                return null;
+
+            return new FuzzyBookmarkOpaque(Base62Decode(encoded));
+        }
+
+        public override bool CanRead => true;
+        public override bool CanWrite => true;
+
+        public static string Base62Encode(byte[] data)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            if (data.Length == 0)
+                return string.Empty;
+
+            int leadingZeroCount = 0;
+            while (leadingZeroCount < data.Length && data[leadingZeroCount] == 0)
+                leadingZeroCount++;
+
+            var value = new BigInteger(data.Reverse().ToArray());
+            if (value.Sign < 0)
+            {
+                byte[] padded = new byte[data.Length + 1];
+                Buffer.BlockCopy(data, 0, padded, 1, data.Length);
+                Array.Reverse(padded);
+                value = new BigInteger(padded);
+            }
+            if (value.IsZero)
+                return new string('0', leadingZeroCount);
+
+            var sb = new StringBuilder();
+            while (value > 0)
+            {
+                BigInteger remainder;
+                value = BigInteger.DivRem(value, Base, out remainder);
+                sb.Append(Alphabet[(int)remainder]);
+            }
+
+            sb.Append('0', leadingZeroCount);
+            var chars = sb.ToString().ToCharArray();
+            Array.Reverse(chars);
+            return new string(chars);
+        }
+
+        public static byte[] Base62Decode(string encoded)
+        {
+            if (encoded == null)
+                throw new ArgumentNullException(nameof(encoded));
+            if (encoded.Length == 0)
+                return new byte[0];
+
+            int leadingZeroCount = 0;
+            while (leadingZeroCount < encoded.Length && encoded[leadingZeroCount] == '0')
+                leadingZeroCount++;
+
+            var value = BigInteger.Zero;
+            for (int i = leadingZeroCount; i < encoded.Length; i++)
+            {
+                int digit = Alphabet.IndexOf(encoded[i]);
+                if (digit < 0)
+                    throw new FormatException($"Invalid Base62 character '{encoded[i]}' at position {i}.");
+
+                value = value * Base + digit;
+            }
+
+            byte[] bytes = value.IsZero
+                ? new byte[0]
+                : value.ToByteArray().Reverse().ToArray();
+
+            if (leadingZeroCount == 0)
+                return bytes;
+
+            var result = new byte[leadingZeroCount + bytes.Length];
+            Buffer.BlockCopy(bytes, 0, result, leadingZeroCount, bytes.Length);
+            return result;
         }
     }
 

@@ -99,11 +99,12 @@ namespace MegaCallstack.Tests
         {
             var frame = new CallstackFrame("MyFunc", "MyFile.cs", 42)
             {
-                Bookmark = new FuzzyBookmark { LineContent = "var x = 1;", LineHash = 123 }
+                Bookmark = new FuzzyBookmark { LineContent = "var x = 1;", LineHash = 123 }.ToOpaque()
             };
 
             Assert.IsNotNull(frame.Bookmark);
-            Assert.AreEqual("var x = 1;", frame.Bookmark.LineContent);
+            Assert.IsNotNull(FuzzyBookmark.FromOpaque(frame.Bookmark));
+            Assert.AreEqual("var x = 1;", FuzzyBookmark.FromOpaque(frame.Bookmark).LineContent);
         }
 
         [TestMethod]
@@ -127,19 +128,23 @@ namespace MegaCallstack.Tests
                     Ratio = 0.5,
                     PreContextHashes = new int[] { 1, 2 },
                     PostContextHashes = new int[] { 3, 4 }
-                }
+                }.ToOpaque()
             };
 
             var json = JsonConvert.SerializeObject(frame);
             var roundTripped = JsonConvert.DeserializeObject<CallstackFrame>(json);
 
             Assert.IsNotNull(roundTripped.Bookmark);
-            Assert.AreEqual(frame.Bookmark.LineContent, roundTripped.Bookmark.LineContent);
-            Assert.AreEqual(frame.Bookmark.LineHash, roundTripped.Bookmark.LineHash);
-            CollectionAssert.AreEqual(frame.Bookmark.ScopePath, roundTripped.Bookmark.ScopePath);
-            Assert.AreEqual(frame.Bookmark.Ratio, roundTripped.Bookmark.Ratio, 0.0001);
-            CollectionAssert.AreEqual(frame.Bookmark.PreContextHashes, roundTripped.Bookmark.PreContextHashes);
-            CollectionAssert.AreEqual(frame.Bookmark.PostContextHashes, roundTripped.Bookmark.PostContextHashes);
+            var bookmark = FuzzyBookmark.FromOpaque(roundTripped.Bookmark);
+            Assert.AreEqual("var x = 1;", bookmark.LineContent);
+            Assert.AreEqual(FuzzyBookmarkEngine.FNV1a(0, "var x = 1;"), bookmark.LineHash);
+            CollectionAssert.AreEqual(new uint[] { 0x12345678 }, bookmark.ScopePath);
+            Assert.AreEqual(0.5, bookmark.Ratio, 0.0001);
+            CollectionAssert.AreEqual(new int[] { 1, 2 }, bookmark.PreContextHashes);
+            CollectionAssert.AreEqual(new int[] { 3, 4 }, bookmark.PostContextHashes);
+
+            StringAssert.Contains(json, "\"Bookmark\"");
+            StringAssert.Contains(json, frame.Bookmark.ToString());
         }
     }
 }

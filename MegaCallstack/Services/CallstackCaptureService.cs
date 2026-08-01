@@ -167,8 +167,7 @@ namespace MegaCallstack.Services
                     if (!File.Exists(frame.FileName))
                         return frame.LineNumber;
 
-                    var bookmarks = new[] { frame.Bookmark };
-                    var results = _bookmarkEngine.ResolveAll(bookmarks, frame.FileName);
+                    var results = _bookmarkEngine.ResolveAll(new[] { frame.Bookmark }, frame.FileName);
                     if (results.Count > 0 && results[0].Line > 0)
                         frame.LineNumber = results[0].Line;
 

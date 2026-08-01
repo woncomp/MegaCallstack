@@ -12,7 +12,7 @@ namespace MegaCallstack.Models
         public string Language { get; set; }
         public string Module { get; set; }
         public string LineContent { get; set; }
-        public FuzzyBookmark Bookmark { get; set; }
+        public FuzzyBookmarkOpaque Bookmark { get; set; }
 
         public CallstackFrame()
         {
