@@ -118,6 +118,16 @@
                         <MenuItem Header="Jump to stack frame position"
                                   Command="{Binding PlacementTarget.Tag.JumpToFrameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
+                        <MenuItem Header="Copy Function Name"
+                                  Command="{Binding PlacementTarget.Tag.CopyFunctionNameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  InputGestureText="Ctrl+C"/>
+                        <MenuItem Header="Copy File Path"
+                                  Command="{Binding PlacementTarget.Tag.CopyFilePathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  InputGestureText="Alt+C"/>
+                        <MenuItem Header="Copy to Root"
+                                  Command="{Binding PlacementTarget.Tag.CopyToRootCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  InputGestureText="Shift+C"/>
+                        <Separator/>
                         <MenuItem Header="Set Color..." Command="{Binding PlacementTarget.Tag.SetColorCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <MenuItem Header="Add Note..." Command="{Binding PlacementTarget.Tag.AddNoteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
@@ -335,6 +345,11 @@
                       TreeViewItem.Expanded="TreeViewItem_ExpandedCollapsed"
                       controls:CallstackTreeViewItem.ItemDoubleClick="TreeViewItem_DoubleClick"
                       ItemContainerStyle="{StaticResource TreeViewItemStyle}">
+                 <controls:CallstackTreeView.InputBindings>
+                     <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyFunctionNameCommand}"/>
+                     <KeyBinding Key="C" Modifiers="Alt" Command="{Binding CopyFilePathCommand}"/>
+                     <KeyBinding Key="C" Modifiers="Shift" Command="{Binding CopyToRootCommand}"/>
+                 </controls:CallstackTreeView.InputBindings>
                  <controls:CallstackTreeView.ItemTemplate>
                     <HierarchicalDataTemplate DataType="{x:Type models:TreeViewNode}" ItemsSource="{Binding Children}">
                         <StackPanel Orientation="Horizontal" ToolTip="{Binding TooltipText}">

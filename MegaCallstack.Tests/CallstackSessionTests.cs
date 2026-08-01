@@ -690,6 +690,77 @@ namespace MegaCallstack.Tests
                 null);
         }
 
+        [TestMethod]
+        public void CopyFunctionNameCommand_SingleNode_CopiesFunctionNameToClipboard()
+        {
+            var session = CreateSession("Test");
+            var callstack = CreateTestCallstack("A", "B", "C");
+            AddOrUpdateCallstack(session, callstack);
+
+            var vm = CreateViewModel();
+            vm.SetActiveSession(session);
+            vm.RefreshTreeNodes();
+
+            var targetNode = vm.DisplayTreeNodes.SelectMany(n => Flatten(n)).First(n => n.Frame?.FunctionName == "B");
+            vm.SelectedNode = targetNode;
+
+            var method = typeof(SessionViewModel).GetMethod("TriggerCopyFunctionName", BindingFlags.NonPublic | BindingFlags.Instance);
+            method.Invoke(vm, null);
+
+            Assert.AreEqual("B", System.Windows.Clipboard.GetText());
+        }
+
+        [TestMethod]
+        public void CopyFilePathCommand_SingleNode_CopiesFilePathToClipboard()
+        {
+            var session = CreateSession("Test");
+            var callstack = CreateTestCallstack("A", "B", "C");
+            AddOrUpdateCallstack(session, callstack);
+
+            var vm = CreateViewModel();
+            vm.SetActiveSession(session);
+            vm.RefreshTreeNodes();
+
+            var targetNode = vm.DisplayTreeNodes.SelectMany(n => Flatten(n)).First(n => n.Frame?.FunctionName == "B");
+            vm.SelectedNode = targetNode;
+
+            var method = typeof(SessionViewModel).GetMethod("TriggerCopyFilePath", BindingFlags.NonPublic | BindingFlags.Instance);
+            method.Invoke(vm, null);
+
+            Assert.AreEqual("test.cs", System.Windows.Clipboard.GetText());
+        }
+
+        [TestMethod]
+        public void CopyToRootCommand_CopiesPathFromRootToSelectedNode()
+        {
+            var session = CreateSession("Test");
+            var callstack = CreateTestCallstack("A", "B", "C");
+            AddOrUpdateCallstack(session, callstack);
+
+            var vm = CreateViewModel();
+            vm.SetActiveSession(session);
+            vm.RefreshTreeNodes();
+
+            var targetNode = vm.DisplayTreeNodes.SelectMany(n => Flatten(n)).First(n => n.Frame?.FunctionName == "C");
+            vm.SelectedNode = targetNode;
+
+            var method = typeof(SessionViewModel).GetMethod("TriggerCopyToRoot", BindingFlags.NonPublic | BindingFlags.Instance);
+            method.Invoke(vm, null);
+
+            var expected = string.Join(Environment.NewLine, new[] { "A", "B", "C" });
+            Assert.AreEqual(expected, System.Windows.Clipboard.GetText());
+        }
+
+        private static IEnumerable<TreeViewNode> Flatten(TreeViewNode node)
+        {
+            yield return node;
+            foreach (var child in node.Children)
+            {
+                foreach (var flattened in Flatten(child))
+                    yield return flattened;
+            }
+        }
+
         private CallstackSession CreateSession(string name)
         {
             var session = new CallstackSession(name)

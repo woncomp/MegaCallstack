@@ -91,6 +91,9 @@ namespace MegaCallstack.ViewModels
             BeginRenameSelectedSessionCommand = new RelayCommand(ExecuteBeginRenameSelectedSession, CanBeginRenameSelectedSession);
             SaveRenameSelectedSessionCommand = new RelayCommand(ExecuteSaveRenameSelectedSession, CanSaveRenameSelectedSession);
             CancelRenameSelectedSessionCommand = new RelayCommand(ExecuteCancelRenameSelectedSession);
+            CopyFunctionNameCommand = new RelayCommand(ExecuteCopyFunctionName, CanCopyFunctionName);
+            CopyFilePathCommand = new RelayCommand(ExecuteCopyFilePath, CanCopyFilePath);
+            CopyToRootCommand = new RelayCommand(ExecuteCopyToRoot, CanCopyToRoot);
 
             _captureService.DebuggerStateChanged += OnDebuggerStateChanged;
         }
@@ -306,6 +309,9 @@ namespace MegaCallstack.ViewModels
         public ICommand BeginRenameSelectedSessionCommand { get; }
         public ICommand SaveRenameSelectedSessionCommand { get; }
         public ICommand CancelRenameSelectedSessionCommand { get; }
+        public ICommand CopyFunctionNameCommand { get; }
+        public ICommand CopyFilePathCommand { get; }
+        public ICommand CopyToRootCommand { get; }
 
 
         private void NotifyHomePageProperties()
@@ -860,6 +866,61 @@ namespace MegaCallstack.ViewModels
         internal void TriggerDeleteSelectedSession() => ExecuteDeleteSelectedSession();
         internal void TriggerResetActiveSession() => ExecuteResetActiveSession();
 
+        private bool CanCopyFunctionName()
+        {
+            return SelectedNode?.Frame != null;
+        }
+
+        private void ExecuteCopyFunctionName()
+        {
+            var name = SelectedNode?.Frame?.FunctionName;
+            if (string.IsNullOrEmpty(name))
+                return;
+
+            Clipboard.SetText(name);
+        }
+
+        private bool CanCopyFilePath()
+        {
+            return SelectedNode?.Frame != null && !string.IsNullOrEmpty(SelectedNode.Frame.FileName);
+        }
+
+        private void ExecuteCopyFilePath()
+        {
+            var fileName = SelectedNode?.Frame?.FileName;
+            if (string.IsNullOrEmpty(fileName))
+                return;
+
+            Clipboard.SetText(fileName);
+        }
+
+        private bool CanCopyToRoot()
+        {
+            return SelectedNode?.Frame != null;
+        }
+
+        private void ExecuteCopyToRoot()
+        {
+            var selected = SelectedNode;
+            if (selected?.Frame == null)
+                return;
+
+            var path = new System.Collections.Generic.List<string>();
+            var current = selected;
+            while (current != null)
+            {
+                if (current.Frame != null && !string.IsNullOrEmpty(current.Frame.FunctionName))
+                    path.Add(current.Frame.FunctionName);
+                current = current.Parent;
+            }
+
+            path.Reverse();
+            if (path.Count == 0)
+                return;
+
+            Clipboard.SetText(string.Join(Environment.NewLine, path));
+        }
+
         public CallstackSession CreateSession(string name)
         {
             var session = new CallstackSession(name)
@@ -893,6 +954,10 @@ namespace MegaCallstack.ViewModels
                 session.Callstacks.Add(callstack);
             }
         }
+
+        internal void TriggerCopyFunctionName() => ExecuteCopyFunctionName();
+        internal void TriggerCopyFilePath() => ExecuteCopyFilePath();
+        internal void TriggerCopyToRoot() => ExecuteCopyToRoot();
 
         protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
