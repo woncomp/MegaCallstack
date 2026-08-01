@@ -75,8 +75,7 @@ namespace MegaCallstack.ViewModels
             PrevMatchCommand = new RelayCommand(ExecutePrevMatch, CanNavigateMatches);
             NextMatchCommand = new RelayCommand(ExecuteNextMatch, CanNavigateMatches);
             DoubleClickNodeCommand = new RelayCommand(ExecuteDoubleClickNode);
-            JumpToCallerCommand = new RelayCommand(ExecuteJumpToCaller, CanJumpToCaller);
-            JumpToFrameCommand = new RelayCommand(ExecuteJumpToFrame, CanJumpToFrame);
+            JumpToCodeCommand = new RelayCommand(ExecuteJumpToCode, CanJumpToCode);
             SetColorCommand = new RelayCommand(ExecuteSetColor);
             ClearColorCommand = new RelayCommand(ExecuteClearColor);
             AddNoteCommand = new RelayCommand(ExecuteAddNote);
@@ -89,7 +88,7 @@ namespace MegaCallstack.ViewModels
             DeleteSessionCommand = new RelayCommand<CallstackSession>(ExecuteDeleteSession);
             DeleteSelectedSessionCommand = new RelayCommand(ExecuteDeleteSelectedSession, CanDeleteSelectedSession);
             BeginRenameSelectedSessionCommand = new RelayCommand(ExecuteBeginRenameSelectedSession, CanBeginRenameSelectedSession);
-            SaveRenameSelectedSessionCommand = new RelayCommand(ExecuteSaveRenameSelectedSession, CanSaveRenameSelectedSession);
+            SaveRenameSelectedSessionCommand = new RelayCommand(async () => await ExecuteSaveRenameSelectedSession(), CanSaveRenameSelectedSession);
             CancelRenameSelectedSessionCommand = new RelayCommand(ExecuteCancelRenameSelectedSession);
             CopyFunctionNameCommand = new RelayCommand(ExecuteCopyFunctionName, CanCopyFunctionName);
             CopyFilePathCommand = new RelayCommand(ExecuteCopyFilePath, CanCopyFilePath);
@@ -295,8 +294,7 @@ namespace MegaCallstack.ViewModels
         public ICommand PrevMatchCommand { get; }
         public ICommand NextMatchCommand { get; }
         public ICommand DoubleClickNodeCommand { get; }
-        public ICommand JumpToCallerCommand { get; }
-        public ICommand JumpToFrameCommand { get; }
+        public ICommand JumpToCodeCommand { get; }
         public ICommand SetColorCommand { get; }
         public ICommand ClearColorCommand { get; }
         public ICommand AddNoteCommand { get; }
@@ -432,8 +430,10 @@ namespace MegaCallstack.ViewModels
 
             if (_activeSession == null)
             {
-                var leafFrame = callstack.Frames.LastOrDefault();
-                var sessionName = !string.IsNullOrWhiteSpace(leafFrame?.FunctionName) ? leafFrame.FunctionName : "New Session";
+                var namingFrame = callstack.Frames.Count >= 2
+                    ? callstack.Frames[callstack.Frames.Count - 2]
+                    : callstack.Frames.LastOrDefault();
+                var sessionName = !string.IsNullOrWhiteSpace(namingFrame?.FunctionName) ? namingFrame.FunctionName : "New Session";
                 _activeSession = CreateSession(sessionName);
                 SetActiveSession(_activeSession);
                 ActiveSessionName = _activeSession.Name;
@@ -524,30 +524,18 @@ namespace MegaCallstack.ViewModels
 
         private void ExecuteDoubleClickNode()
         {
-            if (CanJumpToCaller())
-                ExecuteJumpToCaller();
+            if (CanJumpToCode())
+                ExecuteJumpToCode();
         }
 
-        private bool CanJumpToCaller()
+        private bool CanJumpToCode()
         {
-            return SelectedNode?.Parent?.Frame != null;
+            return SelectedNode?.Frame != null
+                && !string.IsNullOrEmpty(SelectedNode.Frame.FileName)
+                && SelectedNode.Frame.LineNumber > 0;
         }
 
-        private async void ExecuteJumpToCaller()
-        {
-            var parent = SelectedNode?.Parent;
-            if (parent?.Frame != null)
-            {
-                NavigateToFile?.Invoke(parent.Frame.FileName, SelectedNode.JumpLineNumber);
-            }
-        }
-
-        private bool CanJumpToFrame()
-        {
-            return SelectedNode?.Frame != null && !SelectedNode.IsLeaf;
-        }
-
-        private async void ExecuteJumpToFrame()
+        private void ExecuteJumpToCode()
         {
             if (SelectedNode?.Frame != null)
             {
@@ -787,7 +775,7 @@ namespace MegaCallstack.ViewModels
             return _selectedSession != null && _selectedSession.IsSupported;
         }
 
-        private async void ExecuteSaveRenameSelectedSession()
+        private async Task ExecuteSaveRenameSelectedSession()
         {
             if (_selectedSession == null || string.IsNullOrWhiteSpace(RenameSelectedSessionText))
                 return;
@@ -802,7 +790,7 @@ namespace MegaCallstack.ViewModels
             SelectedSession = renamedSession;
         }
 
-        internal void TriggerSaveRenameSelectedSession() => ExecuteSaveRenameSelectedSession();
+        internal async Task TriggerSaveRenameSelectedSession() => await ExecuteSaveRenameSelectedSession();
 
         private bool CanSaveRenameSelectedSession()
         {
@@ -880,7 +868,8 @@ namespace MegaCallstack.ViewModels
 
         private bool CanCopyFunctionName()
         {
-            return SelectedNode?.Frame != null;
+            return SelectedNode?.Frame != null
+                && !string.IsNullOrEmpty(SelectedNode.Frame.FunctionName);
         }
 
         private void ExecuteCopyFunctionName()
@@ -908,7 +897,8 @@ namespace MegaCallstack.ViewModels
 
         private bool CanCopyToRoot()
         {
-            return SelectedNode?.Frame != null;
+            return SelectedNode?.Frame != null
+                && !string.IsNullOrEmpty(SelectedNode.Frame.FunctionName);
         }
 
         private void ExecuteCopyToRoot()

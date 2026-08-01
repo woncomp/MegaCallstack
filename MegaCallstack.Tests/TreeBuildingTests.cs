@@ -139,9 +139,9 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = CreateTestCallstack("main.cs", "main");
             int maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 120;
-            callstack.Frames[0].LineContent = new string('x', maxLength + 10);
+            var lineContent = new string('x', maxLength + 10);
+            var callstack = CreateTestCallstackWithContent("main.cs", new[] { lineContent }, "main");
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -157,9 +157,9 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = CreateTestCallstack("main.cs", "main");
             int maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 120;
-            callstack.Frames[0].LineContent = new string('x', maxLength);
+            var lineContent = new string('x', maxLength);
+            var callstack = CreateTestCallstackWithContent("main.cs", new[] { lineContent }, "main");
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -175,7 +175,6 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
             var callstack = CreateTestCallstack("main.cs", "main");
-            callstack.Frames[0].LineContent = null;
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -190,7 +189,7 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = new CallstackData(new List<CallstackFrame>
+            var callstack = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
             {
                 new CallstackFrame("main", "", 0) { HashCode = 1 }
             });
@@ -209,17 +208,17 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
 
-            var callstack1 = CreateTestCallstack("main.cs", "main", "FuncB");
-            callstack1.Frames[1] = new CallstackFrame("FuncB", "main.cs", 30)
+            var callstack1 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
             {
-                HashCode = callstack1.Frames[1].HashCode
-            };
+                new CallstackFrame("main", "main.cs", 30) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "main") },
+                new CallstackFrame("FuncB", "main.cs", 20) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "main", "FuncB" }) }
+            });
 
-            var callstack2 = CreateTestCallstack("main.cs", "main", "FuncA");
-            callstack2.Frames[1] = new CallstackFrame("FuncA", "main.cs", 10)
+            var callstack2 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
             {
-                HashCode = callstack2.Frames[1].HashCode
-            };
+                new CallstackFrame("main", "main.cs", 10) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "main") },
+                new CallstackFrame("FuncA", "main.cs", 40) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "main", "FuncA" }) }
+            });
 
             AddOrUpdateCallstack(session, callstack1);
             AddOrUpdateCallstack(session, callstack2);
@@ -229,7 +228,7 @@ namespace MegaCallstack.Tests
             var mainChildren = nodes[0].Children;
             Assert.AreEqual(2, mainChildren.Count);
             Assert.AreEqual("10: FuncA", mainChildren[0].DisplayText);
-            Assert.AreEqual("10: FuncB", mainChildren[1].DisplayText);
+            Assert.AreEqual("30: FuncB", mainChildren[1].DisplayText);
         }
 
         [TestMethod]
@@ -256,10 +255,14 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
 
-            var callstack1 = CreateTestCallstack("file1.cs", "RootB");
-            callstack1.Frames[0].LineNumber = 100;
-            var callstack2 = CreateTestCallstack("file2.cs", "RootA");
-            callstack2.Frames[0].LineNumber = 10;
+            var callstack1 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootB", "file1.cs", 100) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootB") }
+            });
+            var callstack2 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootA", "file2.cs", 10) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootA") }
+            });
             AddOrUpdateCallstack(session, callstack1);
             AddOrUpdateCallstack(session, callstack2);
 
@@ -298,11 +301,17 @@ namespace MegaCallstack.Tests
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
 
-            var callstack1 = CreateTestCallstack("file1.cs", "RootA", "FuncB");
-            callstack1.Frames[1].LineNumber = 30;
+            var callstack1 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootA", "file1.cs", 30) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootA") },
+                new CallstackFrame("FuncB", "file1.cs", 20) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "RootA", "FuncB" }) }
+            });
 
-            var callstack2 = CreateTestCallstack("file2.cs", "RootA", "FuncA");
-            callstack2.Frames[1].LineNumber = 10;
+            var callstack2 = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootA", "file2.cs", 10) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootA") },
+                new CallstackFrame("FuncA", "file2.cs", 20) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "RootA", "FuncA" }) }
+            });
 
             AddOrUpdateCallstack(session, callstack1);
             AddOrUpdateCallstack(session, callstack2);
@@ -313,7 +322,7 @@ namespace MegaCallstack.Tests
             var rootChildren = nodes[0].Children;
             Assert.AreEqual(2, rootChildren.Count);
             Assert.AreEqual("10: FuncA", rootChildren[0].DisplayText);
-            Assert.AreEqual("10: FuncB", rootChildren[1].DisplayText);
+            Assert.AreEqual("30: FuncB", rootChildren[1].DisplayText);
         }
 
         [TestMethod]
@@ -321,8 +330,7 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = CreateTestCallstack("main.cs", "main");
-            callstack.Frames[0].LineContent = "test content";
+            var callstack = CreateTestCallstackWithContent("main.cs", new[] { "test content" }, "main");
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -519,8 +527,11 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = CreateTestCallstack("main.cs", "RootWithNoLine", "Child");
-            callstack.Frames[0].LineNumber = 0;
+            var callstack = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootWithNoLine", "main.cs", 0) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootWithNoLine") },
+                new CallstackFrame("Child", "main.cs", 25) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "RootWithNoLine", "Child" }) }
+            });
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -535,9 +546,11 @@ namespace MegaCallstack.Tests
         {
             var builder = CreateBuilder();
             var session = new CallstackSession("Test");
-            var callstack = CreateTestCallstack("main.cs", "RootWithNoLine", "Child");
-            callstack.Frames[0].LineNumber = 0;
-            callstack.Frames[1].LineNumber = 25;
+            var callstack = CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>
+            {
+                new CallstackFrame("RootWithNoLine", "main.cs", 0) { HashCode = CallstackFrame.ComputeFNV1aHash(0, "RootWithNoLine") },
+                new CallstackFrame("Child", "main.cs", 25) { HashCode = CallstackFrame.ComputeHashForPath(new[] { "RootWithNoLine", "Child" }) }
+            });
             AddOrUpdateCallstack(session, callstack);
 
             var nodes = builder.BuildTreeNodes(session);
@@ -568,17 +581,25 @@ namespace MegaCallstack.Tests
 
         private CallstackData CreateTestCallstack(string fileName, params string[] functionNames)
         {
+            return CreateTestCallstackWithContent(fileName, null, functionNames);
+        }
+
+        private CallstackData CreateTestCallstackWithContent(string fileName, string[] lineContents, params string[] functionNames)
+        {
             var frames = new List<CallstackFrame>();
             int hash = 0;
             for (int i = 0; i < functionNames.Length; i++)
             {
                 hash = CallstackFrame.ComputeFNV1aHash(hash, functionNames[i]);
-                frames.Add(new CallstackFrame(functionNames[i], fileName, (i + 1) * 10)
+                var frame = new CallstackFrame(functionNames[i], fileName, (i + 1) * 10)
                 {
                     HashCode = hash
-                });
+                };
+                if (lineContents != null && i < lineContents.Length)
+                    frame.LineContent = lineContents[i];
+                frames.Add(frame);
             }
-            return new CallstackData(frames);
+            return CallstackCaptureService.TransformToPersistentCallstack(frames);
         }
 
         [TestMethod]

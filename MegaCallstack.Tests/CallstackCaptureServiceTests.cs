@@ -328,6 +328,103 @@ namespace MegaCallstack.Tests
             }
         }
 
+        [TestMethod]
+        public void TransformToPersistentCallstack_EmptyFrames_ReturnsNull()
+        {
+            Assert.IsNull(CallstackCaptureService.TransformToPersistentCallstack(null));
+            Assert.IsNull(CallstackCaptureService.TransformToPersistentCallstack(new List<CallstackFrame>()));
+        }
+
+        [TestMethod]
+        public void TransformToPersistentCallstack_RootHasNoLocation()
+        {
+            var frames = new List<CallstackFrame>
+            {
+                new CallstackFrame("main", "main.cs", 10)
+                {
+                    HashCode = 1,
+                    Bookmark = CreateBookmark("main")
+                }
+            };
+
+            var result = CallstackCaptureService.TransformToPersistentCallstack(frames);
+
+            Assert.AreEqual(2, result.Frames.Count);
+            var root = result.Frames[0];
+            Assert.AreEqual("main", root.FunctionName);
+            Assert.IsNull(root.FileName);
+            Assert.AreEqual(0, root.LineNumber);
+            Assert.IsNull(root.Bookmark);
+            Assert.AreEqual(1, root.HashCode);
+        }
+
+        [TestMethod]
+        public void TransformToPersistentCallstack_NonRootUsesParentLocation()
+        {
+            var parentBookmark = CreateBookmark("main");
+            var childBookmark = CreateBookmark("Run");
+            var frames = new List<CallstackFrame>
+            {
+                new CallstackFrame("main", "main.cs", 10)
+                {
+                    HashCode = 1,
+                    Bookmark = parentBookmark
+                },
+                new CallstackFrame("Run", "main.cs", 20)
+                {
+                    HashCode = 2,
+                    Bookmark = childBookmark
+                }
+            };
+
+            var result = CallstackCaptureService.TransformToPersistentCallstack(frames);
+
+            Assert.AreEqual(3, result.Frames.Count);
+            var run = result.Frames[1];
+            Assert.AreEqual("Run", run.FunctionName);
+            Assert.AreEqual("main.cs", run.FileName);
+            Assert.AreEqual(10, run.LineNumber);
+            Assert.AreEqual(parentBookmark, run.Bookmark);
+            Assert.AreEqual(2, run.HashCode);
+        }
+
+        [TestMethod]
+        public void TransformToPersistentCallstack_LeafUsesDeepestFrameLocation()
+        {
+            var childBookmark = CreateBookmark("Run");
+            var frames = new List<CallstackFrame>
+            {
+                new CallstackFrame("main", "main.cs", 10) { HashCode = 1 },
+                new CallstackFrame("Run", "main.cs", 20)
+                {
+                    HashCode = 2,
+                    Bookmark = childBookmark
+                }
+            };
+
+            var result = CallstackCaptureService.TransformToPersistentCallstack(frames);
+
+            Assert.AreEqual(3, result.Frames.Count);
+            var leaf = result.Frames[2];
+            Assert.IsNull(leaf.FunctionName);
+            Assert.AreEqual("main.cs", leaf.FileName);
+            Assert.AreEqual(20, leaf.LineNumber);
+            Assert.AreEqual(childBookmark, leaf.Bookmark);
+            Assert.AreEqual(2, leaf.HashCode);
+            Assert.AreEqual(2, result.LeafHashCode);
+        }
+
+        private static FuzzyBookmarkOpaque CreateBookmark(string content)
+        {
+            return new FuzzyBookmark
+            {
+                LineContent = content,
+                LineHash = FuzzyBookmarkEngine.FNV1a(0, content),
+                ScopePath = new uint[0],
+                Ratio = 0.5
+            }.ToOpaque();
+        }
+
         private string CreateFile(string relativePath)
         {
             var fullPath = Path.Combine(_tempDirectory, relativePath);

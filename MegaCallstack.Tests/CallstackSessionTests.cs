@@ -205,7 +205,7 @@ namespace MegaCallstack.Tests
 
             Assert.IsTrue(loadedSession.IsLoaded);
             Assert.AreEqual(1, loadedSession.Callstacks.Count);
-            Assert.AreEqual(3, loadedSession.Callstacks[0].Frames.Count);
+            Assert.AreEqual(4, loadedSession.Callstacks[0].Frames.Count);
             Assert.AreEqual("#FF0000", loadedSession.NodeColors[100]);
             Assert.IsTrue(loadedSession.CollapsedNodes[200]);
             Assert.AreEqual(0, loadedSession.NodeNotes.Count);
@@ -403,7 +403,7 @@ namespace MegaCallstack.Tests
             var loadedSession = viewModel.FilteredSessions.First(s => s.Id == session.Id);
             viewModel.SelectedSession = loadedSession;
             viewModel.RenameSelectedSessionText = "Renamed";
-            viewModel.TriggerSaveRenameSelectedSession();
+            await viewModel.TriggerSaveRenameSelectedSession();
 
             Assert.AreEqual("Renamed", loadedSession.Name);
 
@@ -846,7 +846,7 @@ namespace MegaCallstack.Tests
                     HashCode = hash
                 });
             }
-            return new CallstackData(frames);
+            return CallstackCaptureService.TransformToPersistentCallstack(frames);
         }
     }
 }

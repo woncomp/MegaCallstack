@@ -10,8 +10,8 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void ColorPropagation_ParentInheritsChildColor()
         {
-            var parent = new TreeViewNode { FunctionName = "Parent", JumpLineNumber = 1 };
-            var child = new TreeViewNode { FunctionName = "Child", JumpLineNumber = 2 };
+            var parent = new TreeViewNode { FunctionName = "Parent", LineNumber = 1 };
+            var child = new TreeViewNode { FunctionName = "Child", LineNumber = 2 };
             parent.Children.Add(child);
 
             child.SetColorAndPropagate(new SolidColorBrush(Colors.Red));
@@ -24,9 +24,9 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void ColorPropagation_GrandparentInheritsChildColor()
         {
-            var grandparent = new TreeViewNode { FunctionName = "Grandparent", JumpLineNumber = 1 };
-            var parent = new TreeViewNode { FunctionName = "Parent", JumpLineNumber = 2 };
-            var child = new TreeViewNode { FunctionName = "Child", JumpLineNumber = 3 };
+            var grandparent = new TreeViewNode { FunctionName = "Grandparent", LineNumber = 1 };
+            var parent = new TreeViewNode { FunctionName = "Parent", LineNumber = 2 };
+            var child = new TreeViewNode { FunctionName = "Child", LineNumber = 3 };
 
             grandparent.Children.Add(parent);
             parent.Children.Add(child);
@@ -41,9 +41,9 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void ClearColor_ParentResolvesFromOtherChild()
         {
-            var parent = new TreeViewNode { FunctionName = "Parent", JumpLineNumber = 1 };
-            var child1 = new TreeViewNode { FunctionName = "Child1", JumpLineNumber = 2 };
-            var child2 = new TreeViewNode { FunctionName = "Child2", JumpLineNumber = 3 };
+            var parent = new TreeViewNode { FunctionName = "Parent", LineNumber = 1 };
+            var child1 = new TreeViewNode { FunctionName = "Child1", LineNumber = 2 };
+            var child2 = new TreeViewNode { FunctionName = "Child2", LineNumber = 3 };
 
             parent.Children.Add(child1);
             parent.Children.Add(child2);
@@ -60,7 +60,7 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void ClearColor_NoChildren_SetsNull()
         {
-            var node = new TreeViewNode { FunctionName = "Node", JumpLineNumber = 1 };
+            var node = new TreeViewNode { FunctionName = "Node", LineNumber = 1 };
             node.SetColorAndPropagate(new SolidColorBrush(Colors.Red));
             node.ClearColorAndPropagate();
 
@@ -73,13 +73,13 @@ namespace MegaCallstack.Tests
             var root = new TreeViewNode
             {
                 FunctionName = "Root",
-                JumpLineNumber = 1,
+                LineNumber = 1,
                 Frame = new CallstackFrame("Root", "root.cs", 1) { HashCode = 100 }
             };
             var child = new TreeViewNode
             {
                 FunctionName = "Child",
-                JumpLineNumber = 5,
+                LineNumber = 5,
                 Frame = new CallstackFrame("Child", "child.cs", 5) { HashCode = 200 }
             };
             root.Children.Add(child);
@@ -95,7 +95,7 @@ namespace MegaCallstack.Tests
             var root = new TreeViewNode
             {
                 FunctionName = "Root",
-                JumpLineNumber = 1,
+                LineNumber = 1,
                 Frame = new CallstackFrame("Root", "root.cs", 1) { HashCode = 100 }
             };
 
@@ -106,9 +106,9 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void SetPathBold_SetsAllAncestors()
         {
-            var root = new TreeViewNode { FunctionName = "Root", JumpLineNumber = 1 };
-            var parent = new TreeViewNode { FunctionName = "Parent", JumpLineNumber = 2 };
-            var child = new TreeViewNode { FunctionName = "Child", JumpLineNumber = 3 };
+            var root = new TreeViewNode { FunctionName = "Root", LineNumber = 1 };
+            var parent = new TreeViewNode { FunctionName = "Parent", LineNumber = 2 };
+            var child = new TreeViewNode { FunctionName = "Child", LineNumber = 3 };
 
             root.Children.Add(parent);
             parent.Children.Add(child);
@@ -123,7 +123,7 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void GetEffectiveColor_ReturnsOwnColorIfSet()
         {
-            var node = new TreeViewNode { FunctionName = "Node", JumpLineNumber = 1 };
+            var node = new TreeViewNode { FunctionName = "Node", LineNumber = 1 };
             node.DisplayForeground = new SolidColorBrush(Colors.Red);
 
             var color = node.GetEffectiveColor();
@@ -134,8 +134,8 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void GetEffectiveColor_ReturnsChildColorIfOwnIsNull()
         {
-            var parent = new TreeViewNode { FunctionName = "Parent", JumpLineNumber = 1 };
-            var child = new TreeViewNode { FunctionName = "Child", JumpLineNumber = 2 };
+            var parent = new TreeViewNode { FunctionName = "Parent", LineNumber = 1 };
+            var child = new TreeViewNode { FunctionName = "Child", LineNumber = 2 };
             parent.Children.Add(child);
 
             child.DisplayForeground = new SolidColorBrush(Colors.Green);
@@ -148,7 +148,7 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void NotesCollection_IsInitiallyEmpty()
         {
-            var node = new TreeViewNode { FunctionName = "Node", JumpLineNumber = 1 };
+            var node = new TreeViewNode { FunctionName = "Node", LineNumber = 1 };
             Assert.IsNotNull(node.Notes);
             Assert.AreEqual(0, node.Notes.Count);
         }
@@ -159,7 +159,7 @@ namespace MegaCallstack.Tests
             var node = new TreeViewNode
             {
                 FunctionName = "Node",
-                JumpLineNumber = 1,
+                LineNumber = 1,
                 Frame = new CallstackFrame("Test", "test.cs", 1) { HashCode = 123 }
             };
             Assert.AreEqual(123, node.NodeKey);
@@ -168,35 +168,35 @@ namespace MegaCallstack.Tests
         [TestMethod]
         public void NodeKey_ReturnsMergeId_WhenFrameIsNull()
         {
-            var node = new TreeViewNode { FunctionName = "Node", JumpLineNumber = 1, MergeId = 456 };
+            var node = new TreeViewNode { FunctionName = "Node", LineNumber = 1, MergeId = 456 };
             Assert.AreEqual(456, node.NodeKey);
         }
 
         [TestMethod]
-        public void DisplayText_IncludesJumpLineNumberAndFunctionName()
+        public void DisplayText_IncludesLineNumberAndFunctionName()
         {
-            var node = new TreeViewNode { FunctionName = "DoWork", JumpLineNumber = 42 };
+            var node = new TreeViewNode { FunctionName = "DoWork", LineNumber = 42 };
             Assert.AreEqual("42: DoWork", node.DisplayText);
         }
 
         [TestMethod]
-        public void DisplayText_ShowsUnknown_WhenJumpLineNumberIsZero()
+        public void DisplayText_ShowsUnknown_WhenLineNumberIsZero()
         {
-            var node = new TreeViewNode { FunctionName = "DoWork", JumpLineNumber = 0 };
+            var node = new TreeViewNode { FunctionName = "DoWork", LineNumber = 0 };
             Assert.AreEqual("???: DoWork", node.DisplayText);
         }
 
         [TestMethod]
         public void DisplayText_LeafNode_UsesLeafText()
         {
-            var node = new TreeViewNode { IsLeaf = true, JumpLineNumber = 7, LeafText = "Console.WriteLine();" };
+            var node = new TreeViewNode { IsLeaf = true, LineNumber = 7, LeafText = "Console.WriteLine();" };
             Assert.AreEqual("7: Console.WriteLine();", node.DisplayText);
         }
 
         [TestMethod]
         public void DisplayText_LeafNode_FallsBackToCurrentLine()
         {
-            var node = new TreeViewNode { IsLeaf = true, JumpLineNumber = 0 };
+            var node = new TreeViewNode { IsLeaf = true, LineNumber = 0 };
             Assert.AreEqual("???: <current line>", node.DisplayText);
         }
     }

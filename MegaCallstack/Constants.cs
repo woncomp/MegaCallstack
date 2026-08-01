@@ -14,7 +14,9 @@ namespace MegaCallstack
         /// <summary>
         /// Schema version for session.json. Increment when the session metadata
         /// persistence format changes in a non-backward-compatible way.
+        /// v2 changes the persisted callstack frame model so each frame stores
+        /// the parent call-site location instead of its own raw location.
         /// </summary>
-        public const int SessionSchemaVersion = 1;
+        public const int SessionSchemaVersion = 2;
     }
 }

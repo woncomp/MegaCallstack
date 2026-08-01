@@ -147,12 +147,63 @@ namespace MegaCallstack.Services
                 frames.Add(f);
             }
 
-            var callstack = new CallstackData(frames);
+            var callstack = TransformToPersistentCallstack(frames);
 
             if (_bookmarkResolver != null)
                 await _bookmarkResolver.CreateBookmarksForCallstackAsync(callstack);
 
             return callstack;
+        }
+
+        internal static CallstackData TransformToPersistentCallstack(List<CallstackFrame> originalFrames)
+        {
+            if (originalFrames == null || originalFrames.Count == 0)
+                return null;
+
+            var transformedFrames = new List<CallstackFrame>(originalFrames.Count + 1);
+
+            for (int i = 0; i < originalFrames.Count; i++)
+            {
+                var originalFrame = originalFrames[i];
+                CallstackFrame transformedFrame;
+
+                if (i == 0)
+                {
+                    transformedFrame = new CallstackFrame(originalFrame.FunctionName, null, 0)
+                    {
+                        Language = originalFrame.Language,
+                        Module = originalFrame.Module,
+                        HashCode = originalFrame.HashCode
+                    };
+                }
+                else
+                {
+                    var parentFrame = originalFrames[i - 1];
+                    transformedFrame = new CallstackFrame(originalFrame.FunctionName, parentFrame.FileName, parentFrame.LineNumber)
+                    {
+                        LineContent = parentFrame.LineContent,
+                        Language = parentFrame.Language,
+                        Module = parentFrame.Module,
+                        Bookmark = parentFrame.Bookmark,
+                        HashCode = originalFrame.HashCode
+                    };
+                }
+
+                transformedFrames.Add(transformedFrame);
+            }
+
+            var deepestFrame = originalFrames[originalFrames.Count - 1];
+            var leafFrame = new CallstackFrame(null, deepestFrame.FileName, deepestFrame.LineNumber)
+            {
+                LineContent = deepestFrame.LineContent,
+                Language = deepestFrame.Language,
+                Module = deepestFrame.Module,
+                Bookmark = deepestFrame.Bookmark,
+                HashCode = deepestFrame.HashCode
+            };
+            transformedFrames.Add(leafFrame);
+
+            return new CallstackData(transformedFrames);
         }
 
         public async Task<int> ResolveFrameLineNumberAsync(CallstackFrame frame)

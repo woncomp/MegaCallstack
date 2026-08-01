@@ -97,14 +97,21 @@ namespace MegaCallstack.Services
             for (int i = 0; i < callstack.Frames.Count; i++)
             {
                 var frame = callstack.Frames[i];
-                int jumpLineNumber = i == 0 ? 0 : callstack.Frames[i - 1].LineNumber;
+                bool isLeaf = i == callstack.Frames.Count - 1;
                 var node = new TreeViewNode
                 {
                     Frame = frame,
-                    FunctionName = frame.FunctionName,
-                    JumpLineNumber = jumpLineNumber,
+                    FunctionName = isLeaf ? null : frame.FunctionName,
+                    LineNumber = frame.LineNumber,
+                    IsLeaf = isLeaf,
                     IsExpanded = GetExpansionState(session, frame.HashCode, true)
                 };
+
+                if (isLeaf)
+                {
+                    node.LeafText = BuildLeafText(frame);
+                    node.MergeId = mergeId++;
+                }
 
                 if (session.NodeNotes.TryGetValue(frame.HashCode, out var notes))
                 {
@@ -120,40 +127,25 @@ namespace MegaCallstack.Services
                 currentNode = node;
             }
 
-            var lastFrame = callstack.Frames[callstack.Frames.Count - 1];
-            var leafNode = CreateLeafNode(lastFrame, ref mergeId);
-            currentNode.Children.Add(leafNode);
-
             return rootNode;
         }
 
-        private TreeViewNode CreateLeafNode(CallstackFrame frame, ref int mergeId)
+        private string BuildLeafText(CallstackFrame frame)
         {
-            string leafText;
             if (frame.LineContent != null)
             {
                 var maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 60;
-                leafText = frame.LineContent.Length > maxLength
+                return frame.LineContent.Length > maxLength
                     ? frame.LineContent.Substring(0, maxLength - 3) + "..."
                     : frame.LineContent;
             }
-            else if (!string.IsNullOrEmpty(frame.FileName))
+
+            if (!string.IsNullOrEmpty(frame.FileName))
             {
-                leafText = $"<{frame.FileName}>";
-            }
-            else
-            {
-                leafText = "<current line>";
+                return $"<{frame.FileName}>";
             }
 
-            return new TreeViewNode
-            {
-                Frame = frame,
-                JumpLineNumber = frame.LineNumber,
-                LeafText = leafText,
-                IsLeaf = true,
-                MergeId = mergeId++
-            };
+            return "<current line>";
         }
 
         private void MergeTree(IList<TreeViewNode> roots, TreeViewNode newNode)
@@ -180,7 +172,7 @@ namespace MegaCallstack.Services
             var sorted = nodes[0].Parent == null
                 ? nodes.OrderBy(n => n.TreeRootOrder).ToList()
                 : nodes.OrderBy(n => n.IsLeaf ? 1 : 0)
-                       .ThenBy(n => n.JumpLineNumber == 0 ? int.MaxValue : n.JumpLineNumber)
+                       .ThenBy(n => n.LineNumber == 0 ? int.MaxValue : n.LineNumber)
                        .ThenBy(n => n.IsLeaf ? n.LeafText : n.FunctionName)
                        .ToList();
 

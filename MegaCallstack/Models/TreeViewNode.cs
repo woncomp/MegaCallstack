@@ -14,14 +14,14 @@ namespace MegaCallstack.Models
         private bool _isExpanded;
         private bool _isSelected;
         private bool _isColorExplicitlySet;
-        private int _jumpLineNumber;
+        private int _lineNumber;
         private string _functionName;
         private string _leafText;
 
-        public int JumpLineNumber
+        public int LineNumber
         {
-            get => _jumpLineNumber;
-            set { _jumpLineNumber = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayText)); }
+            get => _lineNumber;
+            set { _lineNumber = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayText)); }
         }
 
         public string FunctionName
@@ -40,7 +40,7 @@ namespace MegaCallstack.Models
         {
             get
             {
-                var linePrefix = JumpLineNumber > 0 ? JumpLineNumber.ToString() : "???";
+                var linePrefix = LineNumber > 0 ? LineNumber.ToString() : "???";
                 return $"{linePrefix}: {GetLabel()}";
             }
         }

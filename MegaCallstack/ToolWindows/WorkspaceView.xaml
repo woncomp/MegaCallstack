@@ -113,10 +113,8 @@
             <Setter Property="ContextMenu">
                 <Setter.Value>
                     <ContextMenu>
-                        <MenuItem Header="Jump to caller position"
-                                  Command="{Binding PlacementTarget.Tag.JumpToCallerCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                        <MenuItem Header="Jump to stack frame position"
-                                  Command="{Binding PlacementTarget.Tag.JumpToFrameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        <MenuItem Header="Jump to code location"
+                                  Command="{Binding PlacementTarget.Tag.JumpToCodeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                         <Separator/>
                         <MenuItem Header="Copy Function Name"
                                   Command="{Binding PlacementTarget.Tag.CopyFunctionNameCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
