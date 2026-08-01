@@ -8,18 +8,41 @@ namespace MegaCallstack.Models
 {
     public class TreeViewNode : INotifyPropertyChanged
     {
-        private string _displayText;
         private TreeViewNode _parent;
         private Brush _displayForeground;
         private bool _isBold;
         private bool _isExpanded;
         private bool _isSelected;
         private bool _isColorExplicitlySet;
+        private int _jumpLineNumber;
+        private string _functionName;
+        private string _leafText;
+
+        public int JumpLineNumber
+        {
+            get => _jumpLineNumber;
+            set { _jumpLineNumber = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        public string FunctionName
+        {
+            get => _functionName;
+            set { _functionName = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayText)); }
+        }
+
+        public string LeafText
+        {
+            get => _leafText;
+            set { _leafText = value; OnPropertyChanged(); OnPropertyChanged(nameof(DisplayText)); }
+        }
 
         public string DisplayText
         {
-            get => _displayText;
-            set { _displayText = value; OnPropertyChanged(); }
+            get
+            {
+                var linePrefix = JumpLineNumber > 0 ? JumpLineNumber.ToString() : "???";
+                return $"{linePrefix}: {GetLabel()}";
+            }
         }
 
         public CallstackFrame Frame { get; set; }
@@ -36,6 +59,11 @@ namespace MegaCallstack.Models
                     return Frame.BuildTooltipText();
                 return DisplayText;
             }
+        }
+
+        private string GetLabel()
+        {
+            return IsLeaf ? (LeafText ?? "<current line>") : (FunctionName ?? string.Empty);
         }
 
         public TreeViewNode Parent

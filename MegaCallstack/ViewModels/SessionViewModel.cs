@@ -535,7 +535,7 @@ namespace MegaCallstack.ViewModels
             var parent = SelectedNode?.Parent;
             if (parent?.Frame != null)
             {
-                NavigateToFile?.Invoke(parent.Frame.FileName, parent.Frame.LineNumber);
+                NavigateToFile?.Invoke(parent.Frame.FileName, SelectedNode.JumpLineNumber);
             }
         }
 

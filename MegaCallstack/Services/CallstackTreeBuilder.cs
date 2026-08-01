@@ -97,10 +97,12 @@ namespace MegaCallstack.Services
             for (int i = 0; i < callstack.Frames.Count; i++)
             {
                 var frame = callstack.Frames[i];
+                int jumpLineNumber = i == 0 ? 0 : callstack.Frames[i - 1].LineNumber;
                 var node = new TreeViewNode
                 {
                     Frame = frame,
-                    DisplayText = frame.FunctionName,
+                    FunctionName = frame.FunctionName,
+                    JumpLineNumber = jumpLineNumber,
                     IsExpanded = GetExpansionState(session, frame.HashCode, true)
                 };
 
@@ -127,27 +129,28 @@ namespace MegaCallstack.Services
 
         private TreeViewNode CreateLeafNode(CallstackFrame frame, ref int mergeId)
         {
-            string displayText;
+            string leafText;
             if (frame.LineContent != null)
             {
                 var maxLength = SettingsService.CurrentSettings?.LeafNodeDisplayMaxLength ?? 60;
-                displayText = frame.LineContent.Length > maxLength
+                leafText = frame.LineContent.Length > maxLength
                     ? frame.LineContent.Substring(0, maxLength - 3) + "..."
                     : frame.LineContent;
             }
             else if (!string.IsNullOrEmpty(frame.FileName))
             {
-                displayText = $"<{frame.FileName}:{frame.LineNumber}>";
+                leafText = $"<{frame.FileName}>";
             }
             else
             {
-                displayText = "<current line>";
+                leafText = "<current line>";
             }
 
             return new TreeViewNode
             {
                 Frame = frame,
-                DisplayText = displayText,
+                JumpLineNumber = frame.LineNumber,
+                LeafText = leafText,
                 IsLeaf = true,
                 MergeId = mergeId++
             };
@@ -177,8 +180,8 @@ namespace MegaCallstack.Services
             var sorted = nodes[0].Parent == null
                 ? nodes.OrderBy(n => n.TreeRootOrder).ToList()
                 : nodes.OrderBy(n => n.IsLeaf ? 1 : 0)
-                       .ThenBy(n => n.Frame?.LineNumber ?? int.MaxValue)
-                       .ThenBy(n => n.DisplayText)
+                       .ThenBy(n => n.JumpLineNumber == 0 ? int.MaxValue : n.JumpLineNumber)
+                       .ThenBy(n => n.IsLeaf ? n.LeafText : n.FunctionName)
                        .ToList();
 
             nodes.Clear();

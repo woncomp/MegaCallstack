@@ -42,11 +42,11 @@ namespace MegaCallstack.Tests
             var nodes = builder.BuildTreeNodes(session);
 
             Assert.AreEqual(1, nodes.Count);
-            Assert.AreEqual("main", nodes[0].DisplayText);
+            Assert.AreEqual("???: main", nodes[0].DisplayText);
             Assert.AreEqual(1, nodes[0].Children.Count);
-            Assert.AreEqual("Run", nodes[0].Children[0].DisplayText);
+            Assert.AreEqual("10: Run", nodes[0].Children[0].DisplayText);
             Assert.AreEqual(1, nodes[0].Children[0].Children.Count);
-            Assert.AreEqual("DoWork", nodes[0].Children[0].Children[0].DisplayText);
+            Assert.AreEqual("20: DoWork", nodes[0].Children[0].Children[0].DisplayText);
             Assert.AreEqual(1, nodes[0].Children[0].Children[0].Children.Count);
             Assert.IsTrue(nodes[0].Children[0].Children[0].Children[0].IsLeaf);
         }
@@ -83,8 +83,8 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(1, nodes.Count);
             Assert.AreEqual(2, nodes[0].Children.Count);
             var childNames = nodes[0].Children.Select(c => c.DisplayText).ToList();
-            CollectionAssert.Contains(childNames, "Run");
-            CollectionAssert.Contains(childNames, "Execute");
+            CollectionAssert.Contains(childNames, "10: Run");
+            CollectionAssert.Contains(childNames, "10: Execute");
         }
 
         [TestMethod]
@@ -102,7 +102,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(1, runNode.Children.Count);
             var leafNode = runNode.Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual("Console.WriteLine();", leafNode.DisplayText);
+            Assert.AreEqual("20: Console.WriteLine();", leafNode.DisplayText);
         }
 
         [TestMethod]
@@ -148,7 +148,7 @@ namespace MegaCallstack.Tests
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual(maxLength, leafNode.DisplayText.Length);
+            Assert.AreEqual(maxLength, leafNode.DisplayText.Length - "10: ".Length);
             Assert.IsTrue(leafNode.DisplayText.EndsWith("..."));
         }
 
@@ -166,7 +166,7 @@ namespace MegaCallstack.Tests
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual(new string('x', maxLength), leafNode.DisplayText);
+            Assert.AreEqual("10: " + new string('x', maxLength), leafNode.DisplayText);
         }
 
         [TestMethod]
@@ -182,7 +182,7 @@ namespace MegaCallstack.Tests
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual("<main.cs:10>", leafNode.DisplayText);
+            Assert.AreEqual("10: <main.cs>", leafNode.DisplayText);
         }
 
         [TestMethod]
@@ -200,7 +200,7 @@ namespace MegaCallstack.Tests
 
             var leafNode = nodes[0].Children[0];
             Assert.IsTrue(leafNode.IsLeaf);
-            Assert.AreEqual("<current line>", leafNode.DisplayText);
+            Assert.AreEqual("???: <current line>", leafNode.DisplayText);
         }
 
         [TestMethod]
@@ -228,8 +228,8 @@ namespace MegaCallstack.Tests
 
             var mainChildren = nodes[0].Children;
             Assert.AreEqual(2, mainChildren.Count);
-            Assert.AreEqual("FuncA", mainChildren[0].DisplayText);
-            Assert.AreEqual("FuncB", mainChildren[1].DisplayText);
+            Assert.AreEqual("10: FuncA", mainChildren[0].DisplayText);
+            Assert.AreEqual("10: FuncB", mainChildren[1].DisplayText);
         }
 
         [TestMethod]
@@ -246,8 +246,8 @@ namespace MegaCallstack.Tests
             var nodes = builder.BuildTreeNodes(session);
 
             Assert.AreEqual(2, nodes.Count);
-            Assert.AreEqual("RootB", nodes[0].DisplayText);
-            Assert.AreEqual("RootA", nodes[1].DisplayText);
+            Assert.AreEqual("???: RootB", nodes[0].DisplayText);
+            Assert.AreEqual("???: RootA", nodes[1].DisplayText);
         }
 
         [TestMethod]
@@ -266,8 +266,8 @@ namespace MegaCallstack.Tests
             var nodes = builder.BuildTreeNodes(session);
 
             Assert.AreEqual(2, nodes.Count);
-            Assert.AreEqual("RootB", nodes[0].DisplayText);
-            Assert.AreEqual("RootA", nodes[1].DisplayText);
+            Assert.AreEqual("???: RootB", nodes[0].DisplayText);
+            Assert.AreEqual("???: RootA", nodes[1].DisplayText);
         }
 
         [TestMethod]
@@ -288,8 +288,8 @@ namespace MegaCallstack.Tests
             var nodes = builder.BuildTreeNodes(session);
 
             Assert.AreEqual(2, nodes.Count);
-            Assert.AreEqual("RootA", nodes[0].DisplayText);
-            Assert.AreEqual("RootB", nodes[1].DisplayText);
+            Assert.AreEqual("???: RootA", nodes[0].DisplayText);
+            Assert.AreEqual("???: RootB", nodes[1].DisplayText);
         }
 
         [TestMethod]
@@ -312,8 +312,8 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(1, nodes.Count);
             var rootChildren = nodes[0].Children;
             Assert.AreEqual(2, rootChildren.Count);
-            Assert.AreEqual("FuncA", rootChildren[0].DisplayText);
-            Assert.AreEqual("FuncB", rootChildren[1].DisplayText);
+            Assert.AreEqual("10: FuncA", rootChildren[0].DisplayText);
+            Assert.AreEqual("10: FuncB", rootChildren[1].DisplayText);
         }
 
         [TestMethod]
@@ -408,7 +408,7 @@ namespace MegaCallstack.Tests
             var displayTree = builder.BuildDisplayTreeNodes(session, fullTree);
 
             Assert.AreEqual(1, displayTree.Count);
-            Assert.AreEqual("DoWork", displayTree[0].DisplayText);
+            Assert.AreEqual("20: DoWork", displayTree[0].DisplayText);
         }
 
         [TestMethod]
@@ -427,7 +427,7 @@ namespace MegaCallstack.Tests
             var displayTree = builder.BuildDisplayTreeNodes(session, fullTree);
 
             Assert.AreEqual(1, displayTree.Count);
-            Assert.AreEqual("main", displayTree[0].DisplayText);
+            Assert.AreEqual("???: main", displayTree[0].DisplayText);
         }
 
         [TestMethod]
@@ -443,14 +443,14 @@ namespace MegaCallstack.Tests
             builder.SetHiddenAncestors(session, doWorkNode);
 
             var displayTree = builder.BuildDisplayTreeNodes(session, fullTree);
-            Assert.AreEqual("DoWork", displayTree[0].DisplayText);
+            Assert.AreEqual("20: DoWork", displayTree[0].DisplayText);
             Assert.IsTrue(builder.IsDisplayRoot(displayTree[0], session));
 
             builder.ClearHiddenAncestorsForPath(session, displayTree[0]);
             var restoredTree = builder.BuildDisplayTreeNodes(session, fullTree);
 
             Assert.AreEqual(1, restoredTree.Count);
-            Assert.AreEqual("main", restoredTree[0].DisplayText);
+            Assert.AreEqual("???: main", restoredTree[0].DisplayText);
         }
 
         [TestMethod]
@@ -470,8 +470,8 @@ namespace MegaCallstack.Tests
             var displayTree = builder.BuildDisplayTreeNodes(session, fullTree);
 
             Assert.AreEqual(2, displayTree.Count);
-            Assert.AreEqual("Leaf1", displayTree[0].DisplayText);
-            Assert.AreEqual("RootB", displayTree[1].DisplayText);
+            Assert.AreEqual("20: Leaf1", displayTree[0].DisplayText);
+            Assert.AreEqual("???: RootB", displayTree[1].DisplayText);
         }
 
         [TestMethod]
@@ -509,9 +509,42 @@ namespace MegaCallstack.Tests
             var displayTree = builder.BuildDisplayTreeNodes(session, fullTree);
 
             Assert.AreEqual(1, displayTree.Count);
-            Assert.AreEqual("Run", displayTree[0].DisplayText);
+            Assert.AreEqual("10: Run", displayTree[0].DisplayText);
             Assert.AreEqual(1, displayTree[0].Children.Count);
             Assert.IsTrue(displayTree[0].Children[0].IsLeaf);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RootWithZeroLineNumber_ShowsUnknownLine()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "RootWithNoLine", "Child");
+            callstack.Frames[0].LineNumber = 0;
+            AddOrUpdateCallstack(session, callstack);
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.AreEqual(1, nodes.Count);
+            Assert.AreEqual("???: RootWithNoLine", nodes[0].DisplayText);
+            Assert.AreEqual("???: Child", nodes[0].Children[0].DisplayText);
+        }
+
+        [TestMethod]
+        public void BuildTreeNodes_RootWithZeroLineNumber_ChildUsesParentLine()
+        {
+            var builder = CreateBuilder();
+            var session = new CallstackSession("Test");
+            var callstack = CreateTestCallstack("main.cs", "RootWithNoLine", "Child");
+            callstack.Frames[0].LineNumber = 0;
+            callstack.Frames[1].LineNumber = 25;
+            AddOrUpdateCallstack(session, callstack);
+
+            var nodes = builder.BuildTreeNodes(session);
+
+            Assert.AreEqual(1, nodes.Count);
+            Assert.AreEqual("???: RootWithNoLine", nodes[0].DisplayText);
+            Assert.AreEqual("???: Child", nodes[0].Children[0].DisplayText);
         }
 
         private ICallstackTreeBuilder CreateBuilder()
