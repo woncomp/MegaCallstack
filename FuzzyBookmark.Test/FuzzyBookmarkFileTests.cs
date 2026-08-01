@@ -63,6 +63,10 @@ namespace FuzzyBookmark.Test
             Assert.AreEqual(1, results.Count, "Exactly one resolve result should be produced.");
 
             var result = results[0];
+            Console.WriteLine(
+                $"[FuzzyBookmark] {testName}: bookmarkLine={bookmarkLine}, " +
+                $"resolvedLine={result.Line}, matchLevel={result.MatchLevel}, confidence={result.Confidence:0.000}");
+
             Assert.AreEqual(
                 expectedLine,
                 result.Line,
