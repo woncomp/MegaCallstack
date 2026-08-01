@@ -24,7 +24,8 @@ namespace MegaCallstack
         {
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             Logger.Initialize(this);
-            Logger.Log("Package: Initialized");
+            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            Logger.Log($"Package: Initialized (version {version})");
             await ShowMegaCallstackWindowCommand.InitializeAsync(this);
         }
     }

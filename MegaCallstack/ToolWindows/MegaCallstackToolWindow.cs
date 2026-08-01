@@ -12,8 +12,12 @@ namespace MegaCallstack.ToolWindows
 
         public MegaCallstackToolWindow() : base(null)
         {
+#if DEBUG
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             Caption = $"Mega Callstack - {version}";
+#else
+            Caption = "Mega Callstack";
+#endif
             Content = new MegaCallstackToolWindowControl();
         }
     }
