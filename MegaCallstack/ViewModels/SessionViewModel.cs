@@ -221,7 +221,9 @@ namespace MegaCallstack.ViewModels
 
         public bool CanResumePreviousSession => PreviousSession != null;
 
-        public string PreviousSessionName => string.IsNullOrWhiteSpace(PreviousSession?.Name) ? "Untitled Session" : PreviousSession.Name;
+        public string PreviousSessionName => CanResumePreviousSession
+            ? (string.IsNullOrWhiteSpace(PreviousSession?.Name) ? "Untitled Session" : PreviousSession.Name)
+            : "Previous Session Not Available";
 
         public bool HasAnySessions => _sessionData.Sessions.Count > 0;
 

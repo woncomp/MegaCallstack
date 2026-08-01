@@ -443,7 +443,7 @@
                                         Tag="{Binding}"
                                         Click="ActivateSessionButton_Click"
                                         ToolTip="Activate session"
-                                        IsEnabled="{Binding IsSupported}">
+                                        Visibility="{Binding IsSupported, Converter={StaticResource BoolToVis}}">
                                     <vsimg:CrispImage Moniker="{x:Static vscat:KnownMonikers.Play}" Width="16" Height="16"/>
                                 </Button>
                                 <Button x:Name="DeleteButton" Grid.Column="2" Style="{StaticResource SessionActionButtonStyle}"

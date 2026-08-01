@@ -92,14 +92,12 @@
             <StackPanel Visibility="{Binding HasAnySessions, Converter={StaticResource BoolToVis}}">
                 <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
 
-                <TextBlock Text="Resume the previous session" Style="{StaticResource HomePageText}" FontSize="13"
-                           Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Text="Resume the previous session" Style="{StaticResource HomePageText}" FontSize="13"/>
                 <Button Style="{StaticResource HomePageButton}"
                         Command="{Binding ActivateSessionCommand}"
                         CommandParameter="{Binding PreviousSession}"
                         IsEnabled="{Binding CanResumePreviousSession}"
-                        Content="{Binding PreviousSessionName}"
-                        Visibility="{Binding CanResumePreviousSession, Converter={StaticResource BoolToVis}}"/>
+                        Content="{Binding PreviousSessionName}"/>
 
                 <TextBlock Text="or" Style="{StaticResource HomePageText}" FontSize="13" Opacity="0.7"/>
 
