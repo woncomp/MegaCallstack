@@ -1,4 +1,4 @@
-// Expect: 10
+// Expect: 14
 // This header was inserted above the original code.
 // It changes all absolute line numbers but leaves the
 // structural context of the target line intact.

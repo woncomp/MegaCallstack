@@ -1,4 +1,4 @@
-// Expect: 7
+// Expect: 11
 #include <iostream>
 
 namespace App

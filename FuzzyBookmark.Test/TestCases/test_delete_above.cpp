@@ -1,5 +1,7 @@
-// Bookmark: 13
+// Bookmark: 11
 #include <iostream>
+
+// This comment and blank line will be removed.
 
 namespace App
 {
@@ -8,8 +10,6 @@ namespace App
     public:
         void Run()
         {
-            int alpha = 1;
-            int beta = 2;
             int value = 42;
             std::cout << value << std::endl;
         }

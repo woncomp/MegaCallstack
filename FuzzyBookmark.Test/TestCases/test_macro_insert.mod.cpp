@@ -1,4 +1,4 @@
-// Expect: 14
+// Expect: 15
 #include <iostream>
 
 #define TRACE_START() do { } while(0)

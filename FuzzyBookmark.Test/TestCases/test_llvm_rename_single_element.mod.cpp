@@ -1,4 +1,4 @@
-// Expect: 9
+// Expect: 8
 #include <clang/AST/Type.h>
 
 namespace clang {
