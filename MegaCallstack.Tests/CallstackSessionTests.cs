@@ -233,6 +233,21 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
+        public async Task LoadDataAsync_LegacySessionWithoutSchemaVersion_FallsBackToZero()
+        {
+            var session = CreateSession("LegacySession");
+            var folder = _repository.GetOrCreateSessionFolder(session);
+            var sessionFile = Path.Combine(folder, Constants.SessionFileName);
+            var legacyJson = $"{{\"Id\":\"{session.Id}\",\"Name\":\"LegacySession\",\"CreatedTime\":\"{session.CreatedTime:O}\",\"FolderName\":\"{session.FolderName}\"}}";
+            File.WriteAllText(sessionFile, legacyJson);
+
+            var loaded = await new SessionRepository(_solutionInfo).LoadDataAsync();
+
+            Assert.AreEqual(1, loaded.Sessions.Count);
+            Assert.AreEqual(0, loaded.Sessions[0].SchemaVersion);
+        }
+
+        [TestMethod]
         public async Task SaveSessionMetadataAsync_WritesOnlySessionFile()
         {
             var session = CreateSession("TestSession");

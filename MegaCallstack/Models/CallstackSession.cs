@@ -10,6 +10,7 @@ namespace MegaCallstack.Models
         public string Name { get; set; }
         public DateTime CreatedTime { get; set; }
         public string FolderName { get; set; }
+        public int SchemaVersion { get; set; }
 
         [JsonIgnore]
         public List<CallstackData> Callstacks { get; set; } = new List<CallstackData>();

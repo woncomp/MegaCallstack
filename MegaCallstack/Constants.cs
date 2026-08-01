@@ -13,6 +13,12 @@ namespace MegaCallstack
         public const int LeafNodeDisplayMaxLength = 120;
 
         /// <summary>
+        /// Schema version for session.json. Increment when the session metadata
+        /// persistence format changes in a non-backward-compatible way.
+        /// </summary>
+        public const int SessionSchemaVersion = 0;
+
+        /// <summary>
         /// Maximum number of user-code root directories to compute from the
         /// solution's files. Bounds how many distinct project roots are used
         /// when deciding whether a stack frame is user code.
