@@ -157,3 +157,7 @@ vstest.console MegaCallstack.Tests\bin\Debug\MegaCallstack.Tests.dll
 When merging changes from an agent-created branch or worktree back into `main`, adhere to these workflows:
   - By default, use **Rebase + Fast-Forward** merging to maintain a clean, linear commit history on `main` without creating merge commits. First, rebase the branch onto `main` (`git rebase main`), then checkout `main` and fast-forward merge the branch (`git merge <branch>`).
   - If the user explicitly requests a squash, use **Squash Merge** (`git merge --squash <branch>`). In this case, the agent must compose a clean, descriptive summary of the changes to be used as the commit message.
+
+## 12. Worktree Guidelines
+
+When creating Git worktrees, create them under the `<repo>/worktrees/` directory. This keeps all worktrees inside the repository root and makes them easy to find and clean up. The `worktrees/` folder is ignored by `.gitignore` and must never be committed.
