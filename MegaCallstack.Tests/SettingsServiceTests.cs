@@ -58,6 +58,8 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(120, service.Current.LeafNodeDisplayMaxLength);
             Assert.AreEqual(8, service.Current.MaxUserCodeRoots);
             Assert.AreEqual(100000, service.Current.MaxSolutionFilesToScan);
+            Assert.IsNotNull(service.Current.SkipRootFunctions);
+            Assert.AreEqual(0, service.Current.SkipRootFunctions.Count);
         }
 
         [TestMethod]
@@ -70,7 +72,8 @@ namespace MegaCallstack.Tests
                 BookmarkFileDiagnosticsEnabled = true,
                 LeafNodeDisplayMaxLength = 250,
                 MaxUserCodeRoots = 15,
-                MaxSolutionFilesToScan = 200000
+                MaxSolutionFilesToScan = 200000,
+                SkipRootFunctions = new System.Collections.Generic.List<string> { "ThreadMainFunc", "RenderThread_Main" }
             };
 
             service.Save(settings);
@@ -82,6 +85,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(250, deserialized.LeafNodeDisplayMaxLength);
             Assert.AreEqual(15, deserialized.MaxUserCodeRoots);
             Assert.AreEqual(200000, deserialized.MaxSolutionFilesToScan);
+            CollectionAssert.AreEqual(settings.SkipRootFunctions, deserialized.SkipRootFunctions);
         }
 
         [TestMethod]
@@ -103,6 +107,29 @@ namespace MegaCallstack.Tests
         }
 
         [TestMethod]
+        public void SettingsService_Save_NormalizesSkipRootFunctions()
+        {
+            var service = new SettingsService();
+            var settings = new MegaCallstackSettings
+            {
+                SkipRootFunctions = new System.Collections.Generic.List<string>
+                {
+                    " ThreadMainFunc ",
+                    "RenderThread_Main",
+                    "",
+                    "threadmainfunc",
+                    null
+                }
+            };
+
+            service.Save(settings);
+
+            Assert.AreEqual(2, service.Current.SkipRootFunctions.Count);
+            Assert.AreEqual("ThreadMainFunc", service.Current.SkipRootFunctions[0]);
+            Assert.AreEqual("RenderThread_Main", service.Current.SkipRootFunctions[1]);
+        }
+
+        [TestMethod]
         public void SettingsService_Load_LoadsExistingFile()
         {
             var settings = new MegaCallstackSettings
@@ -111,7 +138,8 @@ namespace MegaCallstack.Tests
                 BookmarkFileDiagnosticsEnabled = false,
                 LeafNodeDisplayMaxLength = 500,
                 MaxUserCodeRoots = 50,
-                MaxSolutionFilesToScan = int.MaxValue
+                MaxSolutionFilesToScan = int.MaxValue,
+                SkipRootFunctions = new System.Collections.Generic.List<string> { "ThreadMainFunc" }
             };
 
             File.WriteAllText(Path.Combine(_tempDirectory, "settings.json"), JsonConvert.SerializeObject(settings));
@@ -123,6 +151,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(500, service.Current.LeafNodeDisplayMaxLength);
             Assert.AreEqual(50, service.Current.MaxUserCodeRoots);
             Assert.AreEqual(int.MaxValue, service.Current.MaxSolutionFilesToScan);
+            CollectionAssert.AreEqual(settings.SkipRootFunctions, service.Current.SkipRootFunctions);
         }
 
         [TestMethod]
@@ -133,6 +162,8 @@ namespace MegaCallstack.Tests
             var service = new SettingsService();
 
             Assert.AreEqual(120, service.Current.LeafNodeDisplayMaxLength);
+            Assert.IsNotNull(service.Current.SkipRootFunctions);
+            Assert.AreEqual(0, service.Current.SkipRootFunctions.Count);
         }
 
         [TestMethod]
@@ -147,12 +178,14 @@ namespace MegaCallstack.Tests
                 {
                     LeafNodeDisplayMaxLength = 300,
                     MaxUserCodeRoots = 20,
-                    MaxSolutionFilesToScan = 12345
+                    MaxSolutionFilesToScan = 12345,
+                    SkipRootFunctions = new System.Collections.Generic.List<string> { "ThreadMainFunc" }
                 });
 
                 Assert.AreEqual(300, SettingsService.CurrentSettings.LeafNodeDisplayMaxLength);
                 Assert.AreEqual(20, SettingsService.CurrentSettings.MaxUserCodeRoots);
                 Assert.AreEqual(12345, SettingsService.CurrentSettings.MaxSolutionFilesToScan);
+                CollectionAssert.AreEqual(new[] { "ThreadMainFunc" }, SettingsService.CurrentSettings.SkipRootFunctions);
             }
             finally
             {

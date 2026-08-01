@@ -21,6 +21,8 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(120, settings.LeafNodeDisplayMaxLength);
             Assert.AreEqual(8, settings.MaxUserCodeRoots);
             Assert.AreEqual(100000, settings.MaxSolutionFilesToScan);
+            Assert.IsNotNull(settings.SkipRootFunctions);
+            Assert.AreEqual(0, settings.SkipRootFunctions.Count);
         }
 
         [TestMethod]
@@ -32,7 +34,8 @@ namespace MegaCallstack.Tests
                 BookmarkFileDiagnosticsEnabled = true,
                 LeafNodeDisplayMaxLength = 200,
                 MaxUserCodeRoots = 10,
-                MaxSolutionFilesToScan = 50000
+                MaxSolutionFilesToScan = 50000,
+                SkipRootFunctions = new System.Collections.Generic.List<string> { "ThreadMainFunc", "RenderThread_Main" }
             };
 
             var json = JsonConvert.SerializeObject(original);
@@ -44,6 +47,7 @@ namespace MegaCallstack.Tests
             Assert.AreEqual(original.LeafNodeDisplayMaxLength, deserialized.LeafNodeDisplayMaxLength);
             Assert.AreEqual(original.MaxUserCodeRoots, deserialized.MaxUserCodeRoots);
             Assert.AreEqual(original.MaxSolutionFilesToScan, deserialized.MaxSolutionFilesToScan);
+            CollectionAssert.AreEqual(original.SkipRootFunctions, deserialized.SkipRootFunctions);
         }
     }
 }

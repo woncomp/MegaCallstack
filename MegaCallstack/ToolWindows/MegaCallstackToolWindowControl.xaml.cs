@@ -70,7 +70,7 @@ namespace MegaCallstack.ToolWindows
             };
             var bookmarkEngine = new FuzzyBookmarkEngine(diagnostics);
             var bookmarkResolver = new BookmarkResolver(bookmarkEngine);
-            var captureService = new CallstackCaptureService(dte, info.UserCodeRoots, bookmarkEngine, bookmarkResolver);
+            var captureService = new CallstackCaptureService(dte, info.UserCodeRoots, settingsService.Current.SkipRootFunctions, bookmarkEngine, bookmarkResolver);
             var treeBuilder = new CallstackTreeBuilder();
             var repository = new SessionRepository(info);
             var window = Window.GetWindow(this);

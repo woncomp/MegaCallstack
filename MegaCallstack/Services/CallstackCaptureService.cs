@@ -16,6 +16,7 @@ namespace MegaCallstack.Services
         private readonly FuzzyBookmarkEngine _bookmarkEngine;
         private readonly IBookmarkResolver _bookmarkResolver;
         private readonly List<string> _userCodeRoots;
+        private readonly List<string> _skipRootFunctions;
         private EnvDTE.Events _dteEvents;
         private EnvDTE.DebuggerEvents _debuggerEvents;
 
@@ -37,32 +38,38 @@ namespace MegaCallstack.Services
         }
 
         public CallstackCaptureService(DTE dte)
-            : this(dte, null, new FuzzyBookmarkEngine())
+            : this(dte, null, null, new FuzzyBookmarkEngine(), null)
         {
         }
 
         public CallstackCaptureService(DTE dte, FuzzyBookmarkEngine bookmarkEngine)
-            : this(dte, null, bookmarkEngine)
+            : this(dte, null, null, bookmarkEngine, null)
         {
         }
 
         public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots)
-            : this(dte, userCodeRoots, new FuzzyBookmarkEngine())
+            : this(dte, userCodeRoots, null, new FuzzyBookmarkEngine(), null)
         {
         }
 
         public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, FuzzyBookmarkEngine bookmarkEngine)
-            : this(dte, userCodeRoots, bookmarkEngine, null)
+            : this(dte, userCodeRoots, null, bookmarkEngine, null)
         {
         }
 
-        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, FuzzyBookmarkEngine bookmarkEngine, IBookmarkResolver bookmarkResolver)
+        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, IEnumerable<string> skipRootFunctions, FuzzyBookmarkEngine bookmarkEngine, IBookmarkResolver bookmarkResolver)
         {
             _dte = dte;
             _bookmarkEngine = bookmarkEngine ?? new FuzzyBookmarkEngine();
             _bookmarkResolver = bookmarkResolver;
             _userCodeRoots = NormalizeUserCodeRoots(userCodeRoots);
+            _skipRootFunctions = NormalizeSkipRootFunctions(skipRootFunctions);
             HookDebuggerEvents(dte);
+        }
+
+        public CallstackCaptureService(DTE dte, IEnumerable<string> userCodeRoots, IEnumerable<string> skipRootFunctions)
+            : this(dte, userCodeRoots, skipRootFunctions, new FuzzyBookmarkEngine(), null)
+        {
         }
 
         public async Task<CallstackData> CaptureCurrentCallstackAsync()
@@ -231,6 +238,17 @@ namespace MegaCallstack.Services
 
         private List<CallstackFrame> TrimToUserCode(List<CallstackFrame> frames)
         {
+            var skipRootFunctions = GetEffectiveSkipRootFunctions();
+            if (skipRootFunctions.Count > 0)
+            {
+                int skipRootIndex = FindDeepestSkipRootIndex(frames, skipRootFunctions);
+                if (skipRootIndex > 0)
+                {
+                    Logger.Log($"TrimToUserCode: Matched skip root '{frames[skipRootIndex].FunctionName}' at {skipRootIndex}; keeping frames 0..{skipRootIndex - 1}");
+                    return frames.GetRange(0, skipRootIndex);
+                }
+            }
+
             if (_userCodeRoots == null || _userCodeRoots.Count == 0)
                 return frames;
 
@@ -279,6 +297,55 @@ namespace MegaCallstack.Services
             return frames;
         }
 
+        private List<string> GetEffectiveSkipRootFunctions()
+        {
+            var result = new List<string>();
+            if (_skipRootFunctions != null)
+            {
+                foreach (var functionName in _skipRootFunctions)
+                {
+                    if (!result.Contains(functionName, StringComparer.Ordinal))
+                        result.Add(functionName);
+                }
+            }
+
+            var currentSettings = SettingsService.CurrentSettings;
+            if (currentSettings?.SkipRootFunctions != null)
+            {
+                foreach (var functionName in currentSettings.SkipRootFunctions)
+                {
+                    if (string.IsNullOrWhiteSpace(functionName))
+                        continue;
+
+                    var normalized = functionName.Trim();
+                    if (!result.Contains(normalized, StringComparer.Ordinal))
+                        result.Add(normalized);
+                }
+            }
+
+            return result;
+        }
+
+        private static int FindDeepestSkipRootIndex(List<CallstackFrame> frames, List<string> skipRootFunctions)
+        {
+            for (int i = frames.Count - 1; i >= 0; i--)
+            {
+                var functionName = frames[i].FunctionName;
+                if (string.IsNullOrEmpty(functionName))
+                    continue;
+
+                foreach (var skipRoot in skipRootFunctions)
+                {
+                    if (functionName.Equals(skipRoot, StringComparison.Ordinal))
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
         private static List<string> NormalizeUserCodeRoots(IEnumerable<string> userCodeRoots)
         {
             var result = new List<string>();
@@ -289,6 +356,25 @@ namespace MegaCallstack.Services
             {
                 var normalized = NormalizeRoot(root);
                 if (normalized != null && !result.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                    result.Add(normalized);
+            }
+
+            return result;
+        }
+
+        private static List<string> NormalizeSkipRootFunctions(IEnumerable<string> skipRootFunctions)
+        {
+            var result = new List<string>();
+            if (skipRootFunctions == null)
+                return result;
+
+            foreach (var functionName in skipRootFunctions)
+            {
+                if (string.IsNullOrWhiteSpace(functionName))
+                    continue;
+
+                var normalized = functionName.Trim();
+                if (!result.Contains(normalized, StringComparer.Ordinal))
                     result.Add(normalized);
             }
 

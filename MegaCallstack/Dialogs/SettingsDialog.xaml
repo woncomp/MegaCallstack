@@ -8,7 +8,7 @@
         Title="Mega Callstack Settings"
         ResizeMode="NoResize"
         Width="420"
-        Height="340"
+        Height="540"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False">
     <Window.Resources>
@@ -43,6 +43,13 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,4"/>
         </Style>
+        
+        <Style x:Key="DialogListBox" TargetType="ListBox">
+            <Setter Property="Background" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBorderBrushKey}}"/>
+            <Setter Property="Padding" Value="4"/>
+        </Style>
     </Window.Resources>
     
     <Border Background="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowBackgroundBrushKey}}"
@@ -58,7 +65,10 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             
@@ -112,6 +122,31 @@
             </Grid>
             
             <TextBlock Grid.Row="7"
+                      Text="Skip root functions"
+                      FontWeight="SemiBold"
+                      Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                      Margin="0,16,0,4"/>
+            
+            <TextBlock Grid.Row="8"
+                      Text="Functions to skip as roots (child becomes root)"
+                      Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
+                      TextWrapping="Wrap"
+                      Margin="0,0,0,4"/>
+            
+            <Grid Grid.Row="9" Margin="0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <ListBox Grid.Row="0" x:Name="SkipRootFunctionsListBox" Style="{StaticResource DialogListBox}" Height="100"/>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                    <TextBox x:Name="NewSkipRootFunctionTextBox" Style="{StaticResource DialogTextBox}" Width="200" Margin="0,0,4,0"/>
+                    <Button Content="Add" Style="{StaticResource DialogButton}" Click="AddSkipRootFunction_Click"/>
+                    <Button Content="Remove" Style="{StaticResource DialogButton}" Click="RemoveSkipRootFunction_Click"/>
+                </StackPanel>
+            </Grid>
+            
+            <TextBlock Grid.Row="10"
                       x:Name="RestartNoteTextBlock"
                       Text="* Changes apply after Visual Studio is restarted."
                       Foreground="{DynamicResource {x:Static vsui:EnvironmentColors.ToolWindowTextBrushKey}}"
@@ -120,7 +155,7 @@
                       VerticalAlignment="Bottom"
                       Margin="0,8,0,0"/>
             
-            <Grid Grid.Row="8" Margin="0,16,0,0">
+            <Grid Grid.Row="11" Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>

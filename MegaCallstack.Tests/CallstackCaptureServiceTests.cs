@@ -203,6 +203,131 @@ namespace MegaCallstack.Tests
             Assert.AreEqual("UserCodeA", result[0].FunctionName);
         }
 
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionFound_ChildBecomesRoot()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new[] { "ThreadMainFunc" });
+            var frames = CreateFrames(
+                ("RenderThread_Main", root, 10),
+                ("ThreadMainFunc", @"C:\External\thread.cpp", 1),
+                ("ExternalA", @"C:\External\a.cpp", 2));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("RenderThread_Main", result[0].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionNotFound_FallsBackToUserCodeRoots()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new[] { "SomeOtherFunc" });
+            var frames = CreateFrames(
+                ("UserCodeA", root, 10),
+                ("ExternalA", @"C:\External\a.cpp", 1),
+                ("ExternalB", @"C:\External\b.cpp", 2));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("UserCodeA", result[0].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionDeepestWins()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new[] { "ThreadMainFunc", "RenderThread_Main" });
+            var frames = CreateFrames(
+                ("Worker", root, 10),
+                ("RenderThread_Main", @"C:\External\render.cpp", 1),
+                ("ThreadMainFunc", @"C:\External\thread.cpp", 2),
+                ("ExternalA", @"C:\External\a.cpp", 3));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual("Worker", result[0].FunctionName);
+            Assert.AreEqual("RenderThread_Main", result[1].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionCaseSensitive_DoesNotMatchWrongCase()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new[] { "threadmainfunc" });
+            var frames = CreateFrames(
+                ("UserCodeA", root, 10),
+                ("ThreadMainFunc", @"C:\External\thread.cpp", 1),
+                ("ExternalA", @"C:\External\a.cpp", 2));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("UserCodeA", result[0].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionEmptyList_FallsBackToUserCodeRoots()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new string[0]);
+            var frames = CreateFrames(
+                ("UserCodeA", root, 10),
+                ("ExternalA", @"C:\External\a.cpp", 1));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("UserCodeA", result[0].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunctionAtTop_KeepsAllFramesAbove()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new[] { "TopFunc" });
+            var frames = CreateFrames(
+                ("TopFunc", root, 10),
+                ("ExternalA", @"C:\External\a.cpp", 1));
+
+            var result = InvokeTrimToUserCode(service, frames);
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("TopFunc", result[0].FunctionName);
+        }
+
+        [TestMethod]
+        public void TrimToUserCode_SkipRootFunction_ReadsFromCurrentSettings()
+        {
+            var root = CreateFile(@"Project\main.cpp");
+            var originalSettings = SettingsService.CurrentSettings;
+            try
+            {
+                SettingsService.CurrentSettings = new MegaCallstackSettings
+                {
+                    SkipRootFunctions = new List<string> { "ThreadMainFunc" }
+                };
+
+                var service = new CallstackCaptureService(null, new[] { Path.GetDirectoryName(root) }, new string[0]);
+                var frames = CreateFrames(
+                    ("RenderThread_Main", root, 10),
+                    ("ThreadMainFunc", @"C:\External\thread.cpp", 1),
+                    ("ExternalA", @"C:\External\a.cpp", 2));
+
+                var result = InvokeTrimToUserCode(service, frames);
+
+                Assert.AreEqual(1, result.Count);
+                Assert.AreEqual("RenderThread_Main", result[0].FunctionName);
+            }
+            finally
+            {
+                SettingsService.CurrentSettings = originalSettings;
+            }
+        }
+
         private string CreateFile(string relativePath)
         {
             var fullPath = Path.Combine(_tempDirectory, relativePath);

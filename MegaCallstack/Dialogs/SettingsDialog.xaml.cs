@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using MegaCallstack.Models;
 using MegaCallstack.Services;
@@ -9,6 +11,7 @@ namespace MegaCallstack.Dialogs
     public partial class SettingsDialog : Window
     {
         private readonly ISettingsService _settingsService;
+        private List<string> _skipRootFunctions;
 
         public SettingsDialog(ISettingsService settingsService)
         {
@@ -24,6 +27,33 @@ namespace MegaCallstack.Dialogs
             LeafNodeDisplayMaxLengthTextBox.Text = settings.LeafNodeDisplayMaxLength.ToString(CultureInfo.InvariantCulture);
             MaxUserCodeRootsTextBox.Text = settings.MaxUserCodeRoots.ToString(CultureInfo.InvariantCulture);
             MaxSolutionFilesToScanTextBox.Text = settings.MaxSolutionFilesToScan.ToString(CultureInfo.InvariantCulture);
+
+            _skipRootFunctions = new List<string>(settings.SkipRootFunctions ?? Enumerable.Empty<string>());
+            SkipRootFunctionsListBox.ItemsSource = _skipRootFunctions;
+        }
+
+        private void AddSkipRootFunction_Click(object sender, RoutedEventArgs e)
+        {
+            var text = NewSkipRootFunctionTextBox.Text?.Trim();
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            if (!_skipRootFunctions.Contains(text, StringComparer.Ordinal))
+            {
+                _skipRootFunctions.Add(text);
+                SkipRootFunctionsListBox.Items.Refresh();
+            }
+
+            NewSkipRootFunctionTextBox.Clear();
+        }
+
+        private void RemoveSkipRootFunction_Click(object sender, RoutedEventArgs e)
+        {
+            if (SkipRootFunctionsListBox.SelectedItem is string selected)
+            {
+                _skipRootFunctions.Remove(selected);
+                SkipRootFunctionsListBox.Items.Refresh();
+            }
         }
 
         private void OK_Click(object sender, RoutedEventArgs e)
@@ -78,7 +108,8 @@ namespace MegaCallstack.Dialogs
                 BookmarkFileDiagnosticsEnabled = BookmarkFileDiagnosticsCheckBox.IsChecked ?? false,
                 LeafNodeDisplayMaxLength = leafNodeDisplayMaxLength,
                 MaxUserCodeRoots = maxUserCodeRoots,
-                MaxSolutionFilesToScan = maxSolutionFilesToScan
+                MaxSolutionFilesToScan = maxSolutionFilesToScan,
+                SkipRootFunctions = new List<string>(_skipRootFunctions)
             };
 
             return true;

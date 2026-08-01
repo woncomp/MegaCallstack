@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MegaCallstack.Models;
 using Newtonsoft.Json;
 
@@ -76,6 +78,19 @@ namespace MegaCallstack.Services
             settings.LeafNodeDisplayMaxLength = Clamp(settings.LeafNodeDisplayMaxLength, 10, 1000);
             settings.MaxUserCodeRoots = Clamp(settings.MaxUserCodeRoots, 1, 100);
             settings.MaxSolutionFilesToScan = Clamp(settings.MaxSolutionFilesToScan, 1, int.MaxValue);
+            settings.SkipRootFunctions = NormalizeSkipRootFunctions(settings.SkipRootFunctions);
+        }
+
+        private static List<string> NormalizeSkipRootFunctions(List<string> skipRootFunctions)
+        {
+            if (skipRootFunctions == null)
+                return new List<string>();
+
+            return skipRootFunctions
+                .Select(s => s?.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private static int Clamp(int value, int min, int max)
